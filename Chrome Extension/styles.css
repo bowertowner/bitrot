@@ -1,0 +1,31 @@
+.bcpb-wrap {
+  font-size: 11px;
+  line-height: 1.2;
+  margin-top: 4px;
+  opacity: 0.92;
+}
+
+.bcpb-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-weight: 600;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.bcpb-green {
+  color: #0a6;
+}
+
+.bcpb-blue {
+  color: #06c;
+}
+
+.bcpb-black {
+  color: #111;
+}
+
+.bcpb-muted {
+  color: #666;
+}

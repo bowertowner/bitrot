@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bitrot – Release</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #050608;
+        --bg-alt: #10121a;
+        --border: #26293a;
+        --text: #f6f7ff;
+        --muted: #9ca3b0;
+        --accent: #4ade80;
+        --accent-soft: rgba(74, 222, 128, 0.07);
+        --danger: #f97373;
+        --pill-bg: #111827;
+        --pill-border: #293245;
+        --tag-pill-bg: #111827;
+        --tag-pill-border: #293245;
+        --tag-pill-active-bg: #1e293b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+          "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 16px 48px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .logo {
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .logo span {
+        color: var(--accent);
+      }
+
+      a.back-link {
+        font-size: 13px;
+        color: var(--muted);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      a.back-link:hover {
+        color: var(--accent);
+      }
+
+      a.back-link svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .card {
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 16px;
+        border: 1px solid rgba(75, 85, 99, 0.4);
+        padding: 20px 20px 18px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(18px);
+      }
+
+      .release-header {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .release-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .release-title {
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .release-artist {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .release-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--pill-border);
+        background: var(--pill-bg);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .pill--green {
+        border-color: rgba(74, 222, 128, 0.8);
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .pill-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .pill-dot--red {
+        background: var(--danger);
+      }
+
+      .tags-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .tag-chip {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--tag-pill-border);
+        background: var(--tag-pill-bg);
+        color: var(--muted);
+      }
+
+      .tag-chip a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .tag-chip a:hover {
+        color: var(--accent);
+      }
+
+      .section-title {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin: 20px 0 8px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 4px;
+        font-size: 12px;
+      }
+
+      thead {
+        background: rgba(15, 23, 42, 0.9);
+      }
+
+      th,
+      td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(55, 65, 81, 0.7);
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      th {
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+      }
+
+      tbody tr:nth-child(2n) {
+        background: rgba(15, 23, 42, 0.7);
+      }
+
+      tbody tr:hover {
+        background: rgba(30, 64, 175, 0.25);
+      }
+
+      .col-title {
+        width: 60%;
+        white-space: normal;
+      }
+
+      .text-muted {
+        color: var(--muted);
+      }
+
+      .small {
+        font-size: 11px;
+      }
+
+      .link-out {
+        font-size: 12px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .link-out:hover {
+        text-decoration: underline;
+      }
+
+      .error {
+        color: var(--danger);
+        font-size: 13px;
+      }
+
+      .loading {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          padding: 16px 10px 40px;
+        }
+        .release-title {
+          font-size: 18px;
+        }
+        .release-header {
+          gap: 4px;
+        }
+        th,
+        td {
+          padding: 5px 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="logo"><span>BITROT</span> / RELEASE</div>
+        <a href="/" class="back-link">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M9.5 3L4.5 8L9.5 13"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Back to index
+        </a>
+      </header>
+
+      <div id="release-root" class="card">
+        <div id="release-loading" class="loading">Loading release…</div>
+        <div id="release-error" class="error" style="display:none;"></div>
+        <div id="release-content" style="display:none;">
+          <div class="release-header">
+            <div class="release-title-row">
+              <div class="release-title" id="rel-title"></div>
+              <div id="rel-free-pill" class="pill pill--green" style="display:none;">
+                <span class="pill-dot"></span> Free / NYP
+              </div>
+              <div
+                id="rel-spotify-pill"
+                class="pill"
+                style="display:none; border-color:#22c55e; color:#22c55e;"
+              >
+                <span class="pill-dot"></span> In your Spotify library
+              </div>
+            </div>
+            <div class="release-artist" id="rel-artist"></div>
+            <div class="release-meta">
+              <div id="rel-date"></div>
+              <div id="rel-price" class="text-muted"></div>
+              <div>
+                <a id="rel-link" href="#" class="link-out" target="_blank" rel="noopener noreferrer"
+                  >Open on Bandcamp ↗</a
+                >
+              </div>
+            </div>
+            <div class="tags-row" id="rel-tags"></div>
+          </div>
+
+          <div>
+            <div class="section-title">Tracks</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th class="col-title">Title</th>
+                  <th>Duration</th>
+                  <th>BPM</th>
+                  <th>Key</th>
+                  <th>Dance</th>
+                  <th>Energy</th>
+                </tr>
+              </thead>
+              <tbody id="rel-tracks-body"></tbody>
+            </table>
+            <div class="small text-muted" style="margin-top:6px;">
+              Audio feature columns (BPM, key, danceability, energy) will populate as
+              Spotify analysis data becomes available for this release's tracks.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function getReleaseIdFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("id");
+      }
+
+      function formatDate(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        const opts = { year: "numeric", month: "short", day: "2-digit" };
+        return d.toLocaleDateString(undefined, opts);
+      }
+
+      function formatDuration(seconds) {
+        if (!seconds && seconds !== 0) return "";
+        const s = Math.max(0, Math.round(seconds));
+        const m = Math.floor(s / 60);
+        const rest = s % 60;
+        return m + ":" + (rest < 10 ? "0" + rest : rest);
+      }
+
+      function renderRelease(release, spotifyOverlapIds) {
+        const loadingEl = document.getElementById("release-loading");
+        const errorEl = document.getElementById("release-error");
+        const contentEl = document.getElementById("release-content");
+
+        loadingEl.style.display = "none";
+        errorEl.style.display = "none";
+        contentEl.style.display = "block";
+
+        const titleEl = document.getElementById("rel-title");
+        const artistEl = document.getElementById("rel-artist");
+        const dateEl = document.getElementById("rel-date");
+        const priceEl = document.getElementById("rel-price");
+        const linkEl = document.getElementById("rel-link");
+        const tagsEl = document.getElementById("rel-tags");
+        const tracksBody = document.getElementById("rel-tracks-body");
+        const freePill = document.getElementById("rel-free-pill");
+        const spotifyPill = document.getElementById("rel-spotify-pill");
+
+        titleEl.textContent = release.title || "(untitled)";
+        artistEl.textContent = release.artist_name || "Unknown artist";
+
+        const dateStr = formatDate(release.release_date);
+        dateEl.textContent = dateStr ? "Released " + dateStr : "";
+
+        priceEl.textContent = release.price_label || "";
+
+        if (release.is_free === true || (release.price_label || "").toUpperCase().includes("FREE")) {
+          freePill.style.display = "inline-flex";
+        } else {
+          freePill.style.display = "none";
+        }
+
+        if (release.url) {
+          linkEl.href = release.url;
+        } else {
+          linkEl.style.display = "none";
+        }
+
+        if (Array.isArray(release.tags) && release.tags.length > 0) {
+          tagsEl.innerHTML = "";
+          release.tags.forEach((tag) => {
+            const div = document.createElement("div");
+            div.className = "tag-chip";
+            const a = document.createElement("a");
+            a.href = "/?tag=" + encodeURIComponent(tag);
+            a.textContent = tag;
+            div.appendChild(a);
+            tagsEl.appendChild(div);
+          });
+        }
+
+        if (Array.isArray(spotifyOverlapIds) && spotifyOverlapIds.includes(release.id)) {
+          spotifyPill.style.display = "inline-flex";
+        }
+
+        tracksBody.innerHTML = "";
+
+        if (Array.isArray(release.tracks) && release.tracks.length > 0) {
+          release.tracks.forEach((track, idx) => {
+            const tr = document.createElement("tr");
+
+            const tdIndex = document.createElement("td");
+            tdIndex.textContent = idx + 1;
+
+            const tdTitle = document.createElement("td");
+            tdTitle.className = "col-title";
+            tdTitle.textContent = track.title || "(untitled)";
+
+            const tdDur = document.createElement("td");
+            tdDur.textContent = track.duration ? formatDuration(track.duration) : "";
+
+            const tdBpm = document.createElement("td");
+            const tdKey = document.createElement("td");
+            const tdDance = document.createElement("td");
+            const tdEnergy = document.createElement("td");
+
+            if (track.audio_features) {
+              const af = track.audio_features;
+              tdBpm.textContent = af.tempo ? Math.round(af.tempo) : "";
+              tdKey.textContent =
+                typeof af.key === "number" && af.key >= 0
+                  ? ["C", "C♯/D♭", "D", "D♯/E♭", "E", "F", "F♯/G♭", "G", "G♯/A♭", "A", "A♯/B♭", "B"][af.key]
+                  : "";
+              tdDance.textContent =
+                typeof af.danceability === "number" ? Math.round(af.danceability * 100) + "%" : "";
+              tdEnergy.textContent =
+                typeof af.energy === "number" ? Math.round(af.energy * 100) + "%" : "";
+            }
+
+            tr.appendChild(tdIndex);
+            tr.appendChild(tdTitle);
+            tr.appendChild(tdDur);
+            tr.appendChild(tdBpm);
+            tr.appendChild(tdKey);
+            tr.appendChild(tdDance);
+            tr.appendChild(tdEnergy);
+
+            tracksBody.appendChild(tr);
+          });
+        } else {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 7;
+          td.className = "text-muted";
+          td.textContent = "No track list available for this release yet.";
+          tr.appendChild(td);
+          tracksBody.appendChild(tr);
+        }
+      }
+
+      async function loadReleasePage() {
+        const id = getReleaseIdFromQuery();
+        const loadingEl = document.getElementById("release-loading");
+        const errorEl = document.getElementById("release-error");
+        const contentEl = document.getElementById("release-content");
+
+        if (!id) {
+          loadingEl.style.display = "none";
+          errorEl.style.display = "block";
+          errorEl.textContent = "Missing ?id=… in the URL.";
+          return;
+        }
+
+        try {
+          const [relResp, overlapResp] = await Promise.all([
+            fetch(`/release/${encodeURIComponent(id)}`),
+            fetch("/spotify/overlap").catch(() => null),
+          ]);
+
+          if (!relResp.ok) {
+            const text = await relResp.text();
+            throw new Error(`Release fetch failed: ${relResp.status} ${text}`);
+          }
+
+          const release = await relResp.json();
+
+          let spotifyOverlapIds = [];
+          if (overlapResp && overlapResp.ok) {
+            const overlapJson = await overlapResp.json();
+            if (Array.isArray(overlapJson.matched_release_ids)) {
+              spotifyOverlapIds = overlapJson.matched_release_ids;
+            }
+          }
+
+          renderRelease(release, spotifyOverlapIds);
+        } catch (err) {
+          console.error("Error loading release page:", err);
+          loadingEl.style.display = "none";
+          contentEl.style.display = "none";
+          errorEl.style.display = "block";
+          errorEl.textContent = "Error loading release details.";
+        }
+      }
+
+      loadReleasePage();
+    </script>
+  </body>
+</html>

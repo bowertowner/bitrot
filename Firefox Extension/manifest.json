@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Bandcamp Minimum Price Badges (Firefox)",
+  "version": "1.3.0",
+  "description": "Adds minimum price badges (FREE / NYP / $X) next to album and track links on bandcamp.com/music pages, and sends metadata to Bitrot.",
+  "permissions": [
+    "storage",
+    "*://*.bandcamp.com/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.bandcamp.com/music*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

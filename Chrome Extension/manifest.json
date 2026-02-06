@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Bandcamp Minimum Price Badges",
+  "version": "1.0.2",
+  "description": "Adds minimum price badges (e.g. FREE / NYP / $X) next to album and track links on bandcamp.com/music pages.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "*://*.bandcamp.com/*",
+    "http://localhost:3000/*",
+    "https://api.bitrot.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.bandcamp.com/music*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

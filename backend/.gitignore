@@ -1,0 +1,16 @@
+# Node / backend
+backend/node_modules/
+backend/.env
+backend/npm-debug.log*
+backend/.DS_Store
+
+# macOS junk
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Build artifacts (if any)
+dist/
+build/

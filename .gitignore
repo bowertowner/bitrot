@@ -1,0 +1,12 @@
+# Node
+backend/node_modules/
+backend/.env
+
+# OS junk
+.DS_Store
+
+# Logs
+*.log
+
+# IDE
+.vscode/

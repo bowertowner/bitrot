@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bitrot – Community Digital Crate</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #0b0b0e;
+        color: #f5f5f5;
+      }
+
+      header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #25252b;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+
+      .header-left h1 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .header-left span {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .header-right {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .header-stats {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+	  .stats-bar {
+	  	font-size: 11px;
+	  	color: var(--muted);
+	  	display: flex;
+	  	gap: 8px;
+	  	align-items: center;
+	  	justify-content: flex-end;
+	  }
+	  
+	  .stats-bar span.dot {
+	    width: 3px;
+	    height: 3px;
+	    border-radius: 999px;
+	    background: rgba(148, 163, 184, 0.7);
+	  }
+
+      main {
+        padding: 16px 24px 40px;
+        max-width: 1100px;
+      }
+
+      section {
+        margin-bottom: 24px;
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+
+      .section-subtitle {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-bottom: 12px;
+      }
+
+      .panel {
+        border: 1px solid #25252b;
+        border-radius: 8px;
+        padding: 12px 14px;
+        background: #111118;
+      }
+
+      .panel + .panel {
+        margin-top: 12px;
+      }
+
+      .spotify-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        padding: 6px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: #1db954;
+        color: #041308;
+        border-color: #16a34a;
+        font-weight: 600;
+      }
+
+      .btn-secondary {
+        background: #111827;
+        color: #e5e7eb;
+        border-color: #374151;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        border: 1px solid #374151;
+        background: #020617;
+        color: #9ca3af;
+      }
+
+      .input-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      label {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      input,
+      select {
+        font-family: inherit;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        border: 1px solid #374151;
+        background: #020617;
+        color: #e5e7eb;
+      }
+
+      input::placeholder {
+        color: #6b7280;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        padding: 6px 8px;
+        border-bottom: 1px solid #1f2933;
+        vertical-align: top;
+      }
+
+      th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #9ca3af;
+      }
+
+      th.sortable {
+        cursor: pointer;
+      }
+
+      th.sortable:hover {
+        color: #e5e7eb;
+      }
+
+      tbody tr:hover {
+        background: #111827;
+      }
+
+      a.release-link {
+        color: #93c5fd;
+        text-decoration: none;
+      }
+
+      a.release-link:hover {
+        text-decoration: underline;
+      }
+
+      .tag-chip {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: #020617;
+        border: 1px solid #374151;
+        font-size: 11px;
+        margin: 0 4px 2px 0;
+        color: #e5e7eb;
+        cursor: pointer;
+      }
+
+      #spotify-overlap-output {
+        font-size: 12px;
+        color: #d1d5db;
+        margin-top: 6px;
+        white-space: pre-line;
+      }
+
+      #status {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 6px;
+      }
+
+      .pagination-row {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .pagination-row button {
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid #374151;
+        background: #020617;
+        color: #e5e7eb;
+        cursor: pointer;
+      }
+
+      .pagination-row button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+
+      .details-heading {
+        font-size: 14px;
+        margin: 0 0 4px;
+      }
+
+      .details-sub {
+        font-size: 12px;
+        color: #9ca3af;
+        margin: 0 0 8px;
+      }
+
+      .details-label {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .details-value {
+        font-size: 13px;
+      }
+
+      .track-table {
+        margin-top: 8px;
+        border-top: 1px solid #1f2933;
+      }
+
+      .track-table th,
+      .track-table td {
+        border-bottom: 1px solid #1f2933;
+      }
+
+      /* Inline expanded details inside the releases table */
+      .inline-details-row td {
+        background: #030712;
+        border-top: 1px solid #1f2933;
+        padding: 12px 16px;
+      }
+
+      /* Scrollable box for the main releases table */
+	  .releases-scroll {
+    	max-height: calc(8 * 48px); /* ~48px per table row */
+    	overflow-y: auto;
+    	border: 1px solid #25252b;
+    	border-radius: 6px;
+	  }
+
+      .inline-details {
+        font-size: 12px;
+        color: #e5e7eb;
+        line-height: 1.4;
+      }
+      
+      .inline-details-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      
+      .inline-details-label {
+        font-weight: 600;
+        color: #9ca3af;
+        margin-right: 4px;
+      }
+      
+      .inline-details-tags {
+        margin-top: 6px;
+      }
+
+      .inline-details-tracks {
+        margin-top: 8px;
+      } 
+      
+      .inline-details-tracks table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 4px;
+        font-size: 11px;
+      }
+
+      .inline-details-tracks th,
+      .inline-details-tracks td {
+        border-top: 1px solid #1f2933;
+        padding: 2px 4px;
+        text-align: left;
+      }
+
+      .artists-table-container,
+      .tags-table-container {
+        max-height: 260px;
+        overflow-y: auto;
+        margin-top: 8px;
+      }
+
+      .copy-id-btn {
+        font-size: 8px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.7);
+        background: transparent;
+        color: #9ca3af;
+        cursor: pointer;
+      }
+
+      .copy-id-btn:hover {
+        background: rgba(148, 163, 184, 0.08);
+      }
+
+      .artist-filter-btn {
+        border: none;
+        background: none;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: #60a5fa; /* soft blue link */
+        cursor: pointer;
+      }
+
+      .artist-filter-btn:hover {
+        text-decoration: underline;
+      }
+
+
+      #active-tags {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #9ca3af;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+  	  <div class="header-left">
+    	<h1>Bitrot</h1>
+    	<span>Community-sourced digital release index</span>
+  	  </div>
+  	  <div class="header-right">
+    	<div class="stats-bar">
+      	  <span id="stats-total-releases">0 releases</span>
+      	  <span class="dot"></span>
+      	  <span id="stats-total-artists">0 artists</span>
+      	  <span class="dot"></span>
+      	  <span id="stats-total-free">0 free/NYP</span>
+    	</div>
+  	  </div>
+	</header>
+
+    <main>
+      <!-- Spotify Section -->
+      <section>
+        <h2>Spotify Library Overlap</h2>
+        <p class="section-subtitle">
+          Connect your Spotify account and see how many of your saved releases already exist in Bitrot.
+        </p>
+        <div class="panel">
+          <div class="spotify-row">
+            <a class="btn btn-primary" href="/login" id="spotify-connect">
+              Connect Spotify
+            </a>
+            <button class="btn btn-secondary" id="spotify-check-overlap">
+              Check overlap
+            </button>
+            <label
+              style="
+                font-size: 12px;
+                color: #9ca3af;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+              "
+            >
+              <input type="checkbox" id="spotify-overlap-free-only" />
+              Free / NYP only
+            </label>
+            <span class="badge">MVP · saved tracks only</span>
+          </div>
+          <div id="spotify-overlap-output"></div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin: 0 0 8px; font-size: 13px">
+            Overlapping releases in Bitrot
+          </h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Artist</th>
+                <th>Title</th>
+                <th>Price</th>
+                <th>Free</th>
+                <th>Release date</th>
+                <th>Tags</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="spotify-overlap-body">
+              <tr>
+                <td colspan="7" style="font-size: 12px; color: #9ca3af">
+                  Run "Check overlap" to see matching releases from your Spotify
+                  library.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Filters + Releases Section -->
+      <section>
+        <h2>Releases</h2>
+        <p class="section-subtitle">
+          Releases seen by real humans via the Bandcamp extensions. Use filters
+          to dig for free / NYP material.
+        </p>
+        <div class="panel">
+         <div class="input-row">
+  			<label>
+   			  Artist
+    		  <input
+      			id="filter-artist"
+      			type="text"
+      			placeholder="e.g. Dead Trooper"
+    		  />
+  			</label>
+
+  			<label>
+    		  Release ID
+    		  <input
+     			id="filter-id"
+     			type="text"
+      			placeholder="UUID prefix / fragment"
+    		  />
+  			</label>
+
+  			<label>
+    		  Free / NYP
+    		  <select id="filter-free">
+     			<option value="">Any</option>
+      			<option value="true">Free only</option>
+      			<option value="false">Paid only</option>
+   			  </select>
+ 			</label>
+
+ 			<label>
+    		  Tag
+    		  <input
+      			id="filter-tag"
+      			type="text"
+      			placeholder="Type tag + Enter to add"
+    		  />
+  			</label>
+
+  			<label>
+    		  Global search
+    		  <input
+      			id="filter-global"
+      			type="text"
+      			placeholder="artist / title / tag / URL"
+    		  />
+  			</label>
+
+  			<button class="btn btn-secondary" id="filter-apply">
+    		  Apply filters
+  			  </button>
+		  </div>
+
+          <div id="active-tags"></div>
+          <div id="status"></div>
+        </div>
+
+        <div class="panel">
+        <div class="releases-scroll">
+         <div class="panel">
+          <table>
+            <thead>
+ 			  <tr>
+   				<th style="display:none;">ID</th>
+    			<th class="sortable" data-sort="artist">Artist</th>
+    			<th class="sortable" data-sort="title">Title</th>
+    			<th class="sortable" data-sort="price">Price</th>
+    			<th class="sortable" data-sort="free">Free</th>
+    			<th class="sortable" data-sort="release_date">Release date</th>
+    			<th>Tags</th>
+    			<th class="sortable" data-sort="encounters">Encounters</th>
+    			<th>Source</th>
+  			  </tr>
+            </thead>
+            <tbody id="releases-body">
+              <!-- Filled by JS -->
+            </tbody>
+          </table>
+         </div>
+        </div>
+
+        <div class="panel">
+          <h3 class="details-heading">Release details</h3>
+          <p class="details-sub">
+            Select a release from the table above or from the overlap table to
+            see details here.
+          </p>
+          <div id="release-details"></div>
+        </div>
+      </section>
+
+      <!-- Artists Section -->
+      <section>
+        <h2>Artists</h2>
+        <p class="section-subtitle">
+          Top artists in Bitrot by number of releases. Click an artist to filter
+          the releases table.
+        </p>
+        <div class="panel">
+          <div class="artists-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Artist</th>
+                  <th>Releases</th>
+                  <th>Free / NYP</th>
+                </tr>
+              </thead>
+              <tbody id="artists-body">
+                <tr>
+                  <td colspan="3" style="font-size: 12px; color: #9ca3af">
+                    Loading artists...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tags Section -->
+      <section>
+        <h2>Tags</h2>
+        <p class="section-subtitle">
+          Top tags in Bitrot. Click a tag to filter the releases table by that
+          genre/descriptor.
+        </p>
+        <div class="panel">
+          <div class="tags-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th>Releases</th>
+                  <th>Free / NYP</th>
+                </tr>
+              </thead>
+              <tbody id="tags-body">
+                <tr>
+                  <td colspan="3" style="font-size: 12px; color: #9ca3af">
+                    Loading tags...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      // ---------- Helpers ----------
+
+      const releaseDetailsEl = document.getElementById("release-details");
+      const tagInput = document.getElementById("filter-tag");
+      const activeTagsEl = document.getElementById("active-tags");
+
+      // Selected tags (multi, AND semantics enforced on backend)
+      let selectedTags = [];
+
+      function scrollToReleases() {
+        const releasesSection = document.querySelectorAll("section")[1];
+        if (!releasesSection) return;
+        const top = releasesSection.offsetTop - 20;
+        window.scrollTo({ top, behavior: "smooth" });
+      }
+
+      function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined) return "";
+        const s = Number(seconds);
+        if (Number.isNaN(s) || s <= 0) return "";
+        const mins = Math.floor(s / 60);
+        const secs = s % 60;
+        const padded = secs < 10 ? "0" + secs : secs;
+        return mins + ":" + padded;
+      }
+
+      function renderActiveTags() {
+        if (!activeTagsEl) return;
+        if (!selectedTags || selectedTags.length === 0) {
+          activeTagsEl.innerHTML =
+            "<span style='color:#6b7280;'>No active tag filters</span>";
+          return;
+        }
+
+        const pillsHtml =
+          "<span style='margin-right:4px;'>Active tags (AND):</span>" +
+          selectedTags
+            .map((t) => {
+              const label = t.replace(/</g, "&lt;");
+              const attr = t.replace(/"/g, "&quot;");
+              return `
+              <span class="tag-chip active-tag-pill" data-tag="${attr}">
+                ${label} &times;
+              </span>
+            `;
+            })
+            .join("");
+
+        activeTagsEl.innerHTML = pillsHtml;
+
+        activeTagsEl
+          .querySelectorAll(".active-tag-pill")
+          .forEach((pill) => {
+            pill.addEventListener("click", () => {
+              const name = pill.getAttribute("data-tag");
+              removeTag(name);
+            });
+          });
+      }
+
+      function addTag(tagName) {
+        if (!tagName) return;
+        const cleaned = tagName.trim();
+        if (!cleaned) return;
+        const lower = cleaned.toLowerCase();
+        if (selectedTags.some((t) => t.toLowerCase() === lower)) {
+          return; // already selected
+        }
+        selectedTags.push(cleaned);
+        renderActiveTags();
+        refreshReleases();
+      }
+
+      function removeTag(tagName) {
+        if (!tagName) return;
+        const lower = tagName.toLowerCase();
+        selectedTags = selectedTags.filter(
+          (t) => t.toLowerCase() !== lower
+        );
+        renderActiveTags();
+        refreshReleases();
+      }
+
+      // Attach Enter key on tag input to add a tag pill
+      if (tagInput) {
+        tagInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            const val = tagInput.value.trim();
+            if (val) {
+              addTag(val);
+              tagInput.value = "";
+            }
+          }
+        });
+      }
+
+      function wireTagClickElements(container) {
+        if (!container) return;
+        const chips = container.querySelectorAll(".tag-click");
+        chips.forEach((chip) => {
+          const tagName = chip.getAttribute("data-tag");
+          if (!tagName) return;
+          chip.addEventListener("click", (event) => {
+            event.stopPropagation(); // don't trigger row click
+            addTag(tagName);
+            scrollToReleases();
+          });
+        });
+      }
+
+      async function loadReleaseDetails(releaseId) {
+        if (!releaseId) return;
+        releaseDetailsEl.innerHTML =
+          '<p class="details-sub">Loading release details...</p>';
+
+        try {
+          const res = await fetch("/release/" + encodeURIComponent(releaseId));
+          if (!res.ok) {
+            releaseDetailsEl.innerHTML =
+              '<p class="details-sub">Error loading release details.</p>';
+            return;
+          }
+
+          const r = await res.json();
+
+          const tags = (r.tags || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0);
+
+          const freeLabel =
+            r.is_free === true ? "Yes" : r.is_free === false ? "No" : "";
+
+          const dateStr = r.release_date
+            ? new Date(r.release_date).toISOString().slice(0, 10)
+            : "";
+
+          const seenStr =
+            typeof r.encounter_count === "number"
+              ? r.encounter_count + " recorded encounter(s)"
+              : "Encounters: n/a";
+
+          let tracksHtml = "";
+
+          if (Array.isArray(r.tracks) && r.tracks.length > 0) {
+            tracksHtml += `
+              <table class="track-table">
+                <thead>
+                  <tr>
+                    <th style="width: 60%;">Track</th>
+                    <th style="width: 20%;">Duration</th>
+                    <th style="width: 20%;">Spotify ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+            for (const t of r.tracks) {
+              const titleSafe = String(t.title || "").replace(/</g, "&lt;");
+              tracksHtml += `
+                <tr>
+                  <td>${titleSafe}</td>
+                  <td>${formatDuration(t.duration)}</td>
+                  <td>${t.spotify_track_id || ""}</td>
+                </tr>
+              `;
+            }
+            tracksHtml += `
+                </tbody>
+              </table>
+            `;
+          } else {
+            tracksHtml =
+              '<p class="details-sub">No track list recorded for this release yet.</p>';
+          }
+
+          const tagsHtml =
+            tags.length > 0
+              ? tags
+                  .map((tRaw) => {
+                    const label = tRaw.replace(/</g, "&lt;");
+                    const attr = tRaw.replace(/"/g, "&quot;");
+                    return `
+                      <span class="tag-chip tag-click" data-tag="${attr}">
+                        ${label}
+                      </span>
+                    `;
+                  })
+                  .join("")
+              : "<span style='color:#6b7280;'>None recorded</span>";
+
+          releaseDetailsEl.innerHTML = `
+            <div>
+              <p class="details-label">Artist</p>
+              <p class="details-value">${r.artist_name || ""}</p>
+
+              <p class="details-label">Title</p>
+              <p class="details-value">${r.title || ""}</p>
+
+              <p class="details-label">Price</p>
+              <p class="details-value">${r.price_label || ""} ${
+            freeLabel ? "(" + freeLabel + ")" : ""
+          }</p>
+
+              <p class="details-label">Release date</p>
+              <p class="details-value">${dateStr}</p>
+
+              <p class="details-label">Tags</p>
+              <p class="details-value">
+                ${tagsHtml}
+              </p>
+
+              <p class="details-label">Encounters</p>
+              <p class="details-value">${seenStr}</p>
+
+              <p class="details-label">Source</p>
+              <p class="details-value">
+                ${
+                  r.url
+                    ? '<a class="release-link" href="' +
+                      r.url +
+                      '" target="_blank" rel="noreferrer">Open on Bandcamp</a>'
+                    : "<span style='color:#6b7280;'>No source URL recorded</span>"
+                }
+              </p>
+
+              <p class="details-label">Tracks</p>
+              ${tracksHtml}
+            </div>
+          `;
+
+          wireTagClickElements(releaseDetailsEl);
+        } catch (err) {
+          console.error("Error loading release details:", err);
+          releaseDetailsEl.innerHTML =
+            '<p class="details-sub">Error loading release details.</p>';
+        }
+      }
+
+      async function toggleInlineDetails(rowEl, releaseId) {
+        if (!rowEl || !releaseId) return;
+
+        // If the next row is already an inline details row, remove it (collapse)
+        const next = rowEl.nextElementSibling;
+        if (next && next.classList.contains("inline-details-row")) {
+          next.remove();
+          return;
+        }
+
+        // Create a placeholder row right under the clicked row
+        const detailsTr = document.createElement("tr");
+        detailsTr.className = "inline-details-row";
+
+        const td = document.createElement("td");
+        td.colSpan = rowEl.children.length || 9;
+        td.innerHTML =
+          '<div class="inline-details"><div class="details-sub">Loading release details...</div></div>';
+        detailsTr.appendChild(td);
+
+        rowEl.insertAdjacentElement("afterend", detailsTr);
+
+        try {
+          const res = await fetch("/release/" + encodeURIComponent(releaseId));
+          if (!res.ok) {
+            td.innerHTML =
+              '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
+            return;
+          }
+
+          const r = await res.json();
+
+          const tags = (r.tags || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0);
+
+          const freeLabel =
+            r.is_free === true ? "Yes" : r.is_free === false ? "No" : "";
+
+          const dateStr = r.release_date
+            ? new Date(r.release_date).toISOString().slice(0, 10)
+            : "";
+
+          const seenStr =
+            typeof r.encounter_count === "number"
+              ? r.encounter_count + " recorded encounter(s)"
+              : "Encounters: n/a";
+
+          let tracksHtml = "";
+
+          if (Array.isArray(r.tracks) && r.tracks.length > 0) {
+            tracksHtml = `
+              <div class="inline-details-tracks">
+                <div class="inline-details-label">Tracks</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 60%;">Track</th>
+                      <th style="width: 20%;">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${r.tracks
+                      .map((t) => {
+                        const name = String(t.title || "").replace(/</g, "&lt;");
+                        const d = formatDuration(t.duration);
+                        return `
+                          <tr>
+                            <td>${name}</td>
+                            <td>${d || ""}</td>
+                          </tr>
+                        `;
+                      })
+                      .join("")}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }
+
+          const tagsHtml =
+            tags.length > 0
+              ? tags
+                  .map((tRaw) => {
+                    const label = tRaw.replace(/</g, "&lt;");
+                    const attr = tRaw.replace(/"/g, "&quot;");
+                    return `
+                      <span class="tag-chip tag-click" data-tag="${attr}">
+                        ${label}
+                      </span>
+                    `;
+                  })
+                  .join("")
+              : "<span style='color:#6b7280;'>No tags</span>";
+
+          const bandcampLink = r.url
+            ? `<a class="release-link" href="${r.url}" target="_blank" rel="noreferrer">Open on Bandcamp</a>`
+            : "";
+
+          td.innerHTML = `
+            <div class="inline-details">
+              <div class="inline-details-header">
+                <div><span class="inline-details-label">Artist:</span> ${String(
+                  r.artist_name || ""
+                ).replace(/</g, "&lt;")}</div>
+                <div><span class="inline-details-label">Title:</span> ${String(
+                  r.title || ""
+                ).replace(/</g, "&lt;")}</div>
+                <div><span class="inline-details-label">Release date:</span> ${dateStr}</div>
+                <div><span class="inline-details-label">Free / NYP:</span> ${freeLabel}</div>
+                <div><span class="inline-details-label">Seen:</span> ${seenStr}</div>
+                <div>${bandcampLink}</div>
+              </div>
+
+              <div class="inline-details-tags">
+                <span class="inline-details-label">Tags:</span>
+                ${tagsHtml}
+              </div>
+
+              ${tracksHtml}
+            </div>
+          `;
+
+          // Make tags inside inline details clickable as filters
+          wireTagClickElements(td);
+        } catch (err) {
+          console.error("Error loading inline details", err);
+          td.innerHTML =
+            '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
+        }
+      }
+
+
+      // ---------- Releases listing logic ----------
+
+      // ---------- Releases listing logic ----------
+
+      const releasesBody = document.getElementById("releases-body");
+      const statusEl = document.getElementById("status");
+
+      const artistInput = document.getElementById("filter-artist");
+      const idInput = document.getElementById("filter-id");
+      const globalInput = document.getElementById("filter-global");
+      const freeSelect = document.getElementById("filter-free");
+      const applyBtn = document.getElementById("filter-apply");
+
+      let currentPage = 0;
+      let currentSortBy = null;
+      let currentSortDir = "desc";
+
+      let isLoadingReleases = false;
+      let hasMoreReleases = true;
+      const PAGE_SIZE = 20; // must match backend limit
+
+      function clearReleasesTable() {
+        releasesBody.innerHTML = "";
+      }
+
+      function resetReleases() {
+        currentPage = 0;
+        hasMoreReleases = true;
+        isLoadingReleases = false;
+        clearReleasesTable();
+        statusEl.textContent = "";
+      }
+
+      async function loadNextReleasesPage() {
+        if (isLoadingReleases || !hasMoreReleases) return;
+
+        isLoadingReleases = true;
+        const pageToLoad = currentPage + 1;
+
+        const params = new URLSearchParams();
+        if (artistInput && artistInput.value.trim() !== "") {
+          params.set("artist", artistInput.value.trim());
+        }
+        if (freeSelect && freeSelect.value !== "") {
+          params.set("free", freeSelect.value);
+        }
+        if (selectedTags.length > 0) {
+          params.set("tag", selectedTags.join(","));
+        }
+        if (currentSortBy) {
+          params.set("sort_by", currentSortBy);
+          params.set("sort_dir", currentSortDir);
+        }
+        params.set("page", String(pageToLoad));
+
+        statusEl.textContent =
+          pageToLoad === 1 ? "Loading releases..." : "Loading more releases...";
+
+        try {
+          const res = await fetch("/releases?" + params.toString());
+          if (!res.ok) {
+            throw new Error("Failed to load releases");
+          }
+
+          let rows = await res.json();
+          if (!Array.isArray(rows)) rows = [];
+
+          // ID filter (substring of UUID)
+          if (idInput && idInput.value.trim() !== "") {
+            const idTerm = idInput.value.trim().toLowerCase();
+            rows = rows.filter(
+              (row) => row.id && String(row.id).toLowerCase().includes(idTerm)
+            );
+          }
+
+          // Global search filter
+          if (globalInput && globalInput.value.trim() !== "") {
+            const term = globalInput.value.trim().toLowerCase();
+            rows = rows.filter((row) => {
+              const fields = [
+                row.artist_name,
+                row.title,
+                row.tags,
+                row.price_label,
+                row.url,
+              ];
+              return fields.some(
+                (f) => f && String(f).toLowerCase().includes(term)
+              );
+            });
+          }
+
+          if (!Array.isArray(rows) || rows.length === 0) {
+            if (pageToLoad === 1) {
+              releasesBody.innerHTML =
+                '<tr><td colspan="9">No releases found for this filter set.</td></tr>';
+            }
+            hasMoreReleases = false;
+          } else {
+            for (const row of rows) {
+              const tr = document.createElement("tr");
+
+              const tags = (row.tags || "")
+                .split(",")
+                .map((t) => t.trim())
+                .filter((t) => t.length > 0);
+
+              const freeLabel =
+                row.is_free === true
+                  ? "Yes"
+                  : row.is_free === false
+                  ? "No"
+                  : "";
+
+              const dateStr = row.release_date
+                ? new Date(row.release_date).toISOString().slice(0, 10)
+                : "";
+
+              const tagsHtml =
+                tags.length > 0
+                  ? tags
+                      .map((tRaw) => {
+                        const label = tRaw.replace(/</g, "&lt;");
+                        const attr = tRaw.replace(/"/g, "&quot;");
+                        return `
+                          <span class="tag-chip tag-click" data-tag="${attr}">
+                            ${label}
+                          </span>
+                        `;
+                      })
+                      .join("")
+                  : "";
+
+              const encounters = Number(row.unique_visits ?? 0);
+
+              tr.innerHTML = `
+                <td style="display:none;">
+  				  ${row.id || ""}
+				</td>
+
+                <td>${row.artist_name || ""}</td>
+                <td>${row.title || ""}</td>
+                <td>${row.price_label || ""}</td>
+                <td>${freeLabel}</td>
+                <td>${dateStr}</td>
+                <td>${tagsHtml}</td>
+                <td>${encounters}</td>
+                <td>${
+                  row.url
+                    ? '<a class="release-link" href="' +
+                      row.url +
+                      '" target="_blank" rel="noreferrer">Bandcamp</a>'
+                    : ""
+                }</td>
+              `;
+
+              tr.style.cursor = "pointer";
+              tr.addEventListener("click", () => {
+                // Expand/collapse inline AND still update the side details panel
+                toggleInlineDetails(tr, row.id);
+                loadReleaseDetails(row.id);
+              });
+
+              releasesBody.appendChild(tr);
+              wireTagClickElements(tr);
+            }
+
+            currentPage = pageToLoad;
+
+            if (rows.length < PAGE_SIZE) {
+              hasMoreReleases = false;
+            }
+          }
+
+          const total = Number(res.headers.get("X-Total-Count")) || 0;
+		  statusEl.textContent = `Found ${total} matching release(s).`;
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "Error loading releases.";
+          if (currentPage === 0) {
+            releasesBody.innerHTML =
+              '<tr><td colspan="9">Error loading releases.</td></tr>';
+          }
+        } finally {
+          isLoadingReleases = false;
+        }
+      }
+
+      function refreshReleases() {
+        resetReleases();
+        loadNextReleasesPage();
+      }
+
+      if (applyBtn) {
+        applyBtn.addEventListener("click", () => {
+          refreshReleases();
+        });
+      }
+
+      // Sortable column headers
+      document
+        .querySelectorAll("th.sortable[data-sort]")
+        .forEach((th) => {
+          th.addEventListener("click", () => {
+            const key = th.getAttribute("data-sort");
+            if (!key) return;
+
+            if (currentSortBy === key) {
+              currentSortDir = currentSortDir === "asc" ? "desc" : "asc";
+            } else {
+              currentSortBy = key;
+              currentSortDir = "asc";
+            }
+
+            refreshReleases();
+          });
+        });
+
+      // Infinite scroll: when near bottom of the page, load next page
+      
+      const releasesScroll = document.querySelector(".releases-scroll");
+
+	  releasesScroll.addEventListener("scroll", () => {
+  		const nearBottom =
+    	  releasesScroll.scrollTop + releasesScroll.clientHeight >=
+   		  releasesScroll.scrollHeight - 200;
+
+  		if (nearBottom) {
+    	  loadNextReleasesPage();
+  		}
+	  });
+
+
+
+      // ---------- Spotify overlap logic ----------
+
+      const overlapBtn = document.getElementById("spotify-check-overlap");
+      const overlapOutput = document.getElementById("spotify-overlap-output");
+      const spotifyOverlapBody = document.getElementById("spotify-overlap-body");
+      const overlapFreeOnlyCheckbox = document.getElementById(
+        "spotify-overlap-free-only"
+      );
+
+      // We'll keep the last overlap result in memory so we can re-filter
+      let lastOverlapData = null;
+
+      function renderSpotifyOverlapTable(rows) {
+        spotifyOverlapBody.innerHTML = "";
+
+        if (!rows || rows.length === 0) {
+          spotifyOverlapBody.innerHTML =
+            '<tr><td colspan="7" style="font-size: 12px; color: #9ca3af;">No overlapping releases found.</td></tr>';
+          return;
+        }
+
+        for (const row of rows) {
+          const tr = document.createElement("tr");
+
+          const tags = (row.tags || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t.length > 0);
+
+          const freeLabel =
+            row.is_free === true
+              ? "Yes"
+              : row.is_free === false
+              ? "No"
+              : "";
+
+          const dateStr = row.release_date
+            ? new Date(row.release_date).toISOString().slice(0, 10)
+            : "";
+
+          const tagsHtml =
+            tags.length > 0
+              ? tags
+                  .map((tRaw) => {
+                    const label = tRaw.replace(/</g, "&lt;");
+                    const attr = tRaw.replace(/"/g, "&quot;");
+                    return `
+                      <span class="tag-chip tag-click" data-tag="${attr}">
+                        ${label}
+                      </span>
+                    `;
+                  })
+                  .join("")
+              : "";
+
+          tr.innerHTML = `
+            <td>${row.artist_name || ""}</td>
+            <td>${row.title || ""}</td>
+            <td>${row.price_label || ""}</td>
+            <td>${freeLabel}</td>
+            <td>${dateStr}</td>
+            <td>${tagsHtml}</td>
+            <td>${
+              row.url
+                ? '<a class="release-link" href="' +
+                  row.url +
+                  '" target="_blank" rel="noreferrer">Bandcamp</a>'
+                : ""
+            }</td>
+          `;
+
+          // Make overlap rows clickable too
+          tr.style.cursor = "pointer";
+          tr.addEventListener("click", () => {
+            loadReleaseDetails(row.id);
+          });
+
+          spotifyOverlapBody.appendChild(tr);
+          wireTagClickElements(tr);
+        }
+      }
+
+      function filterOverlapRows(data) {
+        if (!data || !Array.isArray(data.matched_releases)) return [];
+        const rows = data.matched_releases;
+
+        if (!overlapFreeOnlyCheckbox.checked) {
+          return rows;
+        }
+
+        // Free / NYP filter: is_free === true
+        return rows.filter((row) => row.is_free === true);
+      }
+
+      overlapFreeOnlyCheckbox.addEventListener("change", () => {
+        if (!lastOverlapData) return;
+        const filtered = filterOverlapRows(lastOverlapData);
+        renderSpotifyOverlapTable(filtered);
+      });
+
+      overlapBtn.addEventListener("click", async () => {
+        overlapOutput.textContent = "Checking overlap with Spotify...";
+        overlapBtn.disabled = true;
+        try {
+          const res = await fetch("/spotify/overlap");
+          const data = await res.json();
+
+          if (!res.ok) {
+            overlapOutput.textContent =
+              data && data.error
+                ? "Error: " + data.error
+                : "Error checking overlap.";
+            lastOverlapData = null;
+            renderSpotifyOverlapTable([]);
+          } else {
+            lastOverlapData = data;
+
+            overlapOutput.textContent =
+              `Spotify user: ${data.spotify_user_id}\n` +
+              `Saved tracks fetched (capped): ${data.total_spotify_tracks}\n` +
+              `Unique albums (artist + title): ${data.total_spotify_albums}\n` +
+              `Bitrot releases matched: ${data.bitrot_matched_releases}`;
+
+            const filtered = filterOverlapRows(data);
+            renderSpotifyOverlapTable(filtered);
+          }
+        } catch (err) {
+          console.error(err);
+          overlapOutput.textContent = "Error checking overlap.";
+          lastOverlapData = null;
+          renderSpotifyOverlapTable([]);
+        } finally {
+          overlapBtn.disabled = false;
+        }
+      });
+
+      // ---------- Artists + Tags table logic ----------
+
+      const artistsBody = document.getElementById("artists-body");
+      const tagsBody = document.getElementById("tags-body");
+
+      async function loadArtists() {
+        try {
+          const res = await fetch("/artists");
+          if (!res.ok) {
+            throw new Error("Failed to load artists");
+          }
+          const rows = await res.json();
+
+          artistsBody.innerHTML = "";
+
+          if (!Array.isArray(rows) || rows.length === 0) {
+            artistsBody.innerHTML =
+              '<tr><td colspan="3" style="font-size: 12px; color: #9ca3af;">No artists found yet.</td></tr>';
+            return;
+          }
+
+          for (const row of rows) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${row.artist_name || ""}</td>
+              <td>${row.release_count}</td>
+              <td>${row.free_release_count}</td>
+            `;
+            tr.style.cursor = "pointer";
+            tr.addEventListener("click", () => {
+              // Clicking an artist fills the artist filter and reloads releases
+              artistInput.value = row.artist_name || "";
+              refreshReleases();
+              scrollToReleases();
+            });
+            artistsBody.appendChild(tr);
+          }
+        } catch (err) {
+          console.error("Error loading artists:", err);
+          artistsBody.innerHTML =
+            '<tr><td colspan="3" style="font-size: 12px; color: #9ca3af;">Error loading artists.</td></tr>';
+        }
+      }
+
+      async function loadTags() {
+        try {
+          const res = await fetch("/tags");
+          if (!res.ok) {
+            throw new Error("Failed to load tags");
+          }
+          const rows = await res.json();
+
+          tagsBody.innerHTML = "";
+
+          if (!Array.isArray(rows) || rows.length === 0) {
+            tagsBody.innerHTML =
+              '<tr><td colspan="3" style="font-size: 12px; color: #9ca3af;">No tags found yet.</td></tr>';
+            return;
+          }
+
+          for (const row of rows) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${row.name || ""}</td>
+              <td>${row.release_count}</td>
+              <td>${row.free_release_count}</td>
+            `;
+            tr.style.cursor = "pointer";
+            tr.addEventListener("click", () => {
+              // Clicking a tag adds it as an active tag pill (AND filter)
+              addTag(row.name || "");
+              scrollToReleases();
+            });
+            tagsBody.appendChild(tr);
+          }
+        } catch (err) {
+          console.error("Error loading tags:", err);
+          tagsBody.innerHTML =
+            '<tr><td colspan="3" style="font-size: 12px; color: #9ca3af;">Error loading tags.</td></tr>';
+        }
+      }
+
+      // Initial loads
+      renderActiveTags();
+      loadStats();
+      refreshReleases();
+      loadArtists();
+      loadTags();
+      
+	  async function loadStats() {
+  		try {
+   		const res = await fetch("/stats");
+    	if (!res.ok) return;
+    	const stats = await res.json();
+
+    	const elTotalReleases = document.getElementById("stats-total-releases");
+    	const elTotalArtists = document.getElementById("stats-total-artists");
+    	const elTotalFree = document.getElementById("stats-total-free");
+
+    	if (elTotalReleases && typeof stats.total_releases === "number") {
+      		elTotalReleases.textContent = `${stats.total_releases} releases`;
+    	}
+    	if (elTotalArtists && typeof stats.total_artists === "number") {
+      		elTotalArtists.textContent = `${stats.total_artists} artists`;
+    	}
+    	if (elTotalFree && typeof stats.total_free_releases === "number") {
+      		elTotalFree.textContent = `${stats.total_free_releases} NYP releases`;
+    	}
+  	  	} catch (err) {
+    	  console.warn("[Bitrot] Failed to load stats:", err);
+	  	}		
+	  }
+
+// Safe to add even if you have other DOMContentLoaded listeners:
+document.addEventListener("DOMContentLoaded", () => {
+  loadStats();
+});
+
+// Global click handler for "Copy ID" buttons
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest(".copy-id-btn");
+  if (!button) return;
+
+  // Avoid triggering the row click that loads details
+  event.stopPropagation();
+
+  const id = button.dataset.id;
+  if (!id) return;
+
+  try {
+    await navigator.clipboard.writeText(id);
+    const originalText = button.textContent;
+    button.textContent = "Copied!";
+    setTimeout(() => {
+      button.textContent = originalText || "Copy ID";
+    }, 1000);
+  } catch (err) {
+    console.warn("[Bitrot] Failed to copy ID:", err);
+    const originalText = button.textContent;
+    button.textContent = "Copy failed";
+    setTimeout(() => {
+      button.textContent = originalText || "Copy ID";
+    }, 1200);
+  }
+});
+
+// Global click handler for artist filter buttons
+document.addEventListener("click", (event) => {
+  const button = event.target.closest(".artist-filter-btn");
+  if (!button) return;
+
+  event.stopPropagation();
+
+  const artistName = button.dataset.artist || "";
+  const artistInput = document.getElementById("filter-artist");
+  if (artistInput) {
+    artistInput.value = artistName;
+  }
+
+  if (typeof currentFilters === "object") {
+    currentFilters.artist = artistName;
+    currentFilters.page = 1;
+  }
+
+  if (typeof loadReleases === "function") {
+    loadReleases();
+  }
+});
+
+
+    </script>
+  </body>
+</html>
