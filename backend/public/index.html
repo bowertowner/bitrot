@@ -233,6 +233,11 @@
         margin-top: 6px;
       }
 
+	  #release-details {
+		display: none !important;
+	  }
+
+
       .pagination-row {
         display: flex;
         justify-content: flex-end;
@@ -295,11 +300,12 @@
 
       /* Scrollable box for the main releases table */
 	  .releases-scroll {
-    	max-height: calc(8 * 48px); /* ~48px per table row */
-    	overflow-y: auto;
-    	border: 1px solid #25252b;
-    	border-radius: 6px;
+		max-height: 70vh;
+		overflow-y: auto;
+		border: 1px solid #25252b;
+		border-radius: 6px;
 	  }
+
 
       .inline-details {
         font-size: 12px;
@@ -376,6 +382,44 @@
       .artist-filter-btn:hover {
         text-decoration: underline;
       }
+
+	  /* Discogs confidence link */
+	  a.discogs-link {
+  		font-weight: 700;
+  		text-decoration: none;
+	  }
+	  a.discogs-link:hover {
+  		text-decoration: underline;
+	  }
+
+	  a.discogs-low {
+  		color: #fb923c; /* orange */
+	  }
+	  a.discogs-med {
+  		color: #facc15; /* yellow */
+	  }
+	  a.discogs-high {
+  		color: #22c55e; /* green */
+	  }
+	  span.discogs-none {
+  		color: #6b7280; /* muted gray */
+	  }
+
+	  /* Discogs "not found" pill */
+	  span.discogs-not-found {
+		display: inline-block;
+		font-size: 14px;
+		line-height: 1;
+		cursor: default;
+		color: #ffffff
+	  }
+
+
+	  /* Optional "checking" style */
+	  span.discogs-checking {
+  		color: #9ca3af;
+	  }
+
 
 
       #active-tags {
@@ -530,17 +574,17 @@
          <div class="panel">
           <table>
             <thead>
- 			  <tr>
-   				<th style="display:none;">ID</th>
-    			<th class="sortable" data-sort="artist">Artist</th>
-    			<th class="sortable" data-sort="title">Title</th>
-    			<th class="sortable" data-sort="price">Price</th>
-    			<th class="sortable" data-sort="free">Free</th>
-    			<th class="sortable" data-sort="release_date">Release date</th>
-    			<th>Tags</th>
-    			<th class="sortable" data-sort="encounters">Encounters</th>
-    			<th>Source</th>
-  			  </tr>
+			  <tr>
+			    <th style="display:none;">ID</th>
+			    <th class="sortable" data-sort="artist">Artist</th>
+			    <th class="sortable" data-sort="title">Title</th>
+			    <th class="sortable" data-sort="price">Price</th>
+			    <th class="sortable" data-sort="release_date">Release date</th>
+			    <th>Tags</th>
+			    <th class="sortable" data-sort="encounters">Encounters</th>
+			    <th>Source</th>
+			    <th>Discogs</th>
+			  </tr>
             </thead>
             <tbody id="releases-body">
               <!-- Filled by JS -->
@@ -619,7 +663,201 @@
     </main>
 
     <script>
-      // ---------- Helpers ----------
+    
+    
+// ---------- Helpers ----------
+
+		const DISCOGS_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+		const DEV_DISCOGS_REFRESH = true; // dev-only refresh button in expanded pane
+
+	
+	function discogsCooldownKey(releaseId) {
+	  return `discogs:last_match_attempt:${releaseId}`;
+	}
+	
+	function setDiscogsCooldownNow(releaseId) {
+	  try {
+		localStorage.setItem(discogsCooldownKey(releaseId), String(Date.now()));
+	  } catch (_e) {}
+	}
+	
+	function getDiscogsCooldownAgeMs(releaseId) {
+	  try {
+		const raw = localStorage.getItem(discogsCooldownKey(releaseId));
+		if (!raw) return Infinity;
+		const t = Number(raw);
+		if (!Number.isFinite(t)) return Infinity;
+		return Date.now() - t;
+	  } catch (_e) {
+		return Infinity;
+	  }
+	}
+	
+	function renderDiscogsCell(td, info) {
+	  // Not triggered yet
+	  if (!info) {
+		td.innerHTML = `<span class="discogs-none">-</span>`;
+		return;
+	  }
+	
+	  // Not found / rejected should stick
+	  if (info.status === "not_found" || info.status === "rejected") {
+		td.innerHTML = `<span class="discogs-not-found" style="color:#ffffff;" title="Not Found On Discogs">🤨</span>`;
+		return;
+	  }
+	
+	  // If we don't have a Discogs release id, we can't link
+	  if (info.discogs_release_id == null) {
+		td.innerHTML = `<span class="discogs-none">-</span>`;
+		return;
+	  }
+	
+	  const score =
+		info.confidence_score == null
+		  ? null
+		  : Math.max(0, Math.min(100, Number(info.confidence_score)));
+	
+	  const avg =
+		info.discogs_rating_average == null ? null : Number(info.discogs_rating_average);
+	
+	  const count =
+		info.discogs_rating_count == null ? null : Number(info.discogs_rating_count);
+	
+	  const discogsUrl =
+		"https://www.discogs.com/release/" + encodeURIComponent(info.discogs_release_id);
+	
+	  const baseTooltip =
+		score == null
+		  ? "Discogs match found."
+		  : `We are ${Math.round(score)}% sure that this is the correct release.`;
+	
+	  // If Discogs has no ratings yet, show "--/5" in white (no gradient),
+	  // and add extra tooltip guidance.
+	  const noRatings = count === 0;
+	
+	  let ratingText = "—";
+	  let linkStyle = "color:#9ca3af;";
+	  let tooltip = baseTooltip;
+	
+	  if (noRatings) {
+		ratingText = "--/5";
+		linkStyle = "color:#ffffff;";
+		tooltip =
+		  baseTooltip +
+		  " This release has no ratings yet. Click this link to leave a rating on Discogs.";
+	  } else if (avg != null && Number.isFinite(avg)) {
+		ratingText = `${avg.toFixed(1)}/5`;
+	
+		// Color gradient based on Discogs rating (0–5): red -> yellow -> green
+		const clamped = Math.max(0, Math.min(5, avg));
+		const hue = (clamped / 5) * 120; // 0=red, 120=green
+		linkStyle = `color: hsl(${hue}, 80%, 55%);`;
+	  }
+	
+	  td.innerHTML = `
+		<a class="discogs-link"
+		   style="${linkStyle}"
+		   href="${discogsUrl}"
+		   target="_blank"
+		   rel="noreferrer"
+		   title="${tooltip.replace(/"/g, "&quot;")}">
+		  ${ratingText}
+		</a>
+	  `;
+	}
+	
+	async function hydrateDiscogsCellsForVisibleRows(_rowsIgnored) {
+	  try {
+		const cells = Array.from(
+		  document.querySelectorAll('td[data-discogs-cell="1"][data-release-id]')
+		);
+		if (cells.length === 0) return;
+	
+		const ids = cells
+		  .map((td) => td.getAttribute("data-release-id"))
+		  .map((s) => (s ? s.trim() : ""))
+		  .filter(Boolean);
+	
+		if (ids.length === 0) return;
+	
+		const res = await fetch("/discogs/status?ids=" + encodeURIComponent(ids.join(",")));
+		if (!res.ok) {
+		  console.warn("[Discogs UI] status endpoint failed:", res.status);
+		  return;
+		}
+	
+		const statusMap = await res.json();
+	
+		for (const td of cells) {
+		  const id = (td.getAttribute("data-release-id") || "").trim();
+		  if (!id) continue;
+		  renderDiscogsCell(td, statusMap[id]);
+		}
+	  } catch (e) {
+		console.error("hydrateDiscogsCellsForVisibleRows failed", e);
+	  }
+	}
+	
+	async function hydrateDiscogsCellForReleaseId(releaseId) {
+	  try {
+		const td = document.querySelector(
+		  `td[data-discogs-cell="1"][data-release-id="${CSS.escape(releaseId)}"]`
+		);
+		if (!td) return;
+	
+		const res = await fetch("/discogs/status?ids=" + encodeURIComponent(releaseId));
+		if (!res.ok) return;
+	
+		const statusMap = await res.json();
+		renderDiscogsCell(td, statusMap[releaseId]);
+	  } catch (e) {
+		console.error("hydrateDiscogsCellForReleaseId failed", e);
+	  }
+	}
+	
+	async function triggerDiscogsMatchForReleaseId(releaseId, opts = {}) {
+	  try {
+		const force = opts && opts.force === true;
+	
+	    const td = document.querySelector(
+		  `td[data-discogs-cell="1"][data-release-id="${CSS.escape(releaseId)}"]`
+		);
+		if (!td) return;
+	
+		// Frontend cooldown (1 hour) unless force
+		if (!force) {
+		  const age = getDiscogsCooldownAgeMs(releaseId);
+		  if (age < DISCOGS_COOLDOWN_MS) {
+			await hydrateDiscogsCellForReleaseId(releaseId);
+			return;
+		  }
+		}
+	
+		setDiscogsCooldownNow(releaseId);
+		td.innerHTML = `<span class="discogs-checking">Checking Discogs…</span>`;
+	
+		const url =
+		  "/discogs/match/" +
+		  encodeURIComponent(releaseId) +
+		  (force ? "?force=1" : "");
+	
+		const res = await fetch(url, {
+		  method: "POST",
+		  headers: { "Content-Type": "application/json" },
+		});
+	
+		if (!res.ok) {
+		  td.innerHTML = `<span class="discogs-none">-</span>`;
+		  return;
+		}
+	
+		// Only set cooldown AFTER the POST succeeded (otherwise failures can "stick")
+		setDiscogsCooldownNow(releaseId);
+		await hydrateDiscogsCellForReleaseId(releaseId);
+	  } catch (e) {
+		console.error("triggerDiscogsMatchForReleaseId failed", e);
+	  }
+	}
 
       const releaseDetailsEl = document.getElementById("release-details");
       const tagInput = document.getElementById("filter-tag");
@@ -858,141 +1096,159 @@
         }
       }
 
-      async function toggleInlineDetails(rowEl, releaseId) {
-        if (!rowEl || !releaseId) return;
+	  async function toggleInlineDetails(rowEl, releaseId) {
+		if (!rowEl || !releaseId) return false;
+	  
+		// If the next row is already an inline details row, remove it (collapse)
+		const next = rowEl.nextElementSibling;
+		if (next && next.classList.contains("inline-details-row")) {
+		  next.remove();
+		  return false;
+		}
+	  
+		// Create a placeholder row right under the clicked row
+		const detailsTr = document.createElement("tr");
+		detailsTr.className = "inline-details-row";
+	  
+		const td = document.createElement("td");
+		td.colSpan = rowEl.children.length || 9;
+		td.innerHTML =
+		  '<div class="inline-details"><div class="details-sub">Loading release details...</div></div>';
+		detailsTr.appendChild(td);
+	  
+		rowEl.insertAdjacentElement("afterend", detailsTr);
+	  
+		try {
+		  const res = await fetch("/release/" + encodeURIComponent(releaseId));
+		  if (!res.ok) {
+			td.innerHTML =
+			  '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
+			return true; // still "expanded"
+		  }
+	  
+		  const r = await res.json();
+	  
+		  const tags = (r.tags || "")
+			.split(",")
+			.map((t) => t.trim())
+			.filter((t) => t.length > 0);
+	  
+		  const dateStr = r.release_date
+			? new Date(r.release_date).toISOString().slice(0, 10)
+			: "";
+	  
+		  const seenStr =
+			typeof r.encounter_count === "number"
+			  ? r.encounter_count + " recorded encounter(s)"
+			  : "Encounters: n/a";
+	  
+		  let tracksHtml = "";
+	  
+		  if (Array.isArray(r.tracks) && r.tracks.length > 0) {
+			tracksHtml = `
+			  <div class="inline-details-tracks">
+				<div class="inline-details-label">Tracks</div>
+				<table>
+				  <thead>
+					<tr>
+					  <th style="width: 60%;">Track</th>
+					  <th style="width: 20%;">Duration</th>
+					</tr>
+				  </thead>
+				  <tbody>
+					${r.tracks
+					  .map((t) => {
+						const name = String(t.title || "").replace(/</g, "&lt;");
+						const d = formatDuration(t.duration);
+						return `
+						  <tr>
+							<td>${name}</td>
+							<td>${d || ""}</td>
+						  </tr>
+						`;
+					  })
+					  .join("")}
+				  </tbody>
+				</table>
+			  </div>
+			`;
+		  }
+	  
+		  const tagsHtml =
+			tags.length > 0
+			  ? tags
+				  .map((tRaw) => {
+					const label = tRaw.replace(/</g, "&lt;");
+					const attr = tRaw.replace(/"/g, "&quot;");
+					return `
+					  <span class="tag-chip tag-click" data-tag="${attr}">
+						${label}
+					  </span>
+					`;
+				  })
+				  .join("")
+			  : "<span style='color:#6b7280;'>No tags</span>";
+	  
+		  td.innerHTML = `
+			<div class="inline-details">
+			  <div class="details-grid">
+				<div>
+				  <div class="details-label">Release ID</div>
+				  <div class="details-value" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+					<code style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; color:#e5e7eb;">
+					  ${r.id || releaseId}
+					</code>
+					<button class="copy-id-btn" data-id="${r.id || releaseId}">Copy ID</button>
+					${
+					  DEV_DISCOGS_REFRESH
+					  	? `<button class="copy-id-btn discogs-refresh-btn" data-release-id="${r.id || releaseId}" title="Force refresh Discogs match" style="font-size:10px;">
+       						  ⟳
+       					   </button>`
+   					    : ""
+					}
+				  </div>
+				</div>		
+				<div>
+				  <div class="details-label">Release date</div>
+				  <div class="details-value">${dateStr}</div>
+				</div>
+				<div>
+				  <div class="details-label">Tags</div>
+				  <div class="details-value">${tagsHtml}</div>
+				</div>
+				<div>
+				  <div class="details-label">Encounters</div>
+				  <div class="details-value">${seenStr}</div>
+				</div>
+				<div>
+				  <div class="details-label">Source</div>
+				  <div class="details-value">
+					${
+					  r.url
+						? '<a class="release-link" href="' +
+						  r.url +
+						  '" target="_blank" rel="noreferrer">Open on Bandcamp</a>'
+						: "<span style='color:#6b7280;'>No source URL recorded</span>"
+					}
+				  </div>
+				</div>
+			  </div>
+			  ${tracksHtml}
+			</div>
+		  `;
 
-        // If the next row is already an inline details row, remove it (collapse)
-        const next = rowEl.nextElementSibling;
-        if (next && next.classList.contains("inline-details-row")) {
-          next.remove();
-          return;
-        }
-
-        // Create a placeholder row right under the clicked row
-        const detailsTr = document.createElement("tr");
-        detailsTr.className = "inline-details-row";
-
-        const td = document.createElement("td");
-        td.colSpan = rowEl.children.length || 9;
-        td.innerHTML =
-          '<div class="inline-details"><div class="details-sub">Loading release details...</div></div>';
-        detailsTr.appendChild(td);
-
-        rowEl.insertAdjacentElement("afterend", detailsTr);
-
-        try {
-          const res = await fetch("/release/" + encodeURIComponent(releaseId));
-          if (!res.ok) {
-            td.innerHTML =
-              '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
-            return;
-          }
-
-          const r = await res.json();
-
-          const tags = (r.tags || "")
-            .split(",")
-            .map((t) => t.trim())
-            .filter((t) => t.length > 0);
-
-          const freeLabel =
-            r.is_free === true ? "Yes" : r.is_free === false ? "No" : "";
-
-          const dateStr = r.release_date
-            ? new Date(r.release_date).toISOString().slice(0, 10)
-            : "";
-
-          const seenStr =
-            typeof r.encounter_count === "number"
-              ? r.encounter_count + " recorded encounter(s)"
-              : "Encounters: n/a";
-
-          let tracksHtml = "";
-
-          if (Array.isArray(r.tracks) && r.tracks.length > 0) {
-            tracksHtml = `
-              <div class="inline-details-tracks">
-                <div class="inline-details-label">Tracks</div>
-                <table>
-                  <thead>
-                    <tr>
-                      <th style="width: 60%;">Track</th>
-                      <th style="width: 20%;">Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${r.tracks
-                      .map((t) => {
-                        const name = String(t.title || "").replace(/</g, "&lt;");
-                        const d = formatDuration(t.duration);
-                        return `
-                          <tr>
-                            <td>${name}</td>
-                            <td>${d || ""}</td>
-                          </tr>
-                        `;
-                      })
-                      .join("")}
-                  </tbody>
-                </table>
-              </div>
-            `;
-          }
-
-          const tagsHtml =
-            tags.length > 0
-              ? tags
-                  .map((tRaw) => {
-                    const label = tRaw.replace(/</g, "&lt;");
-                    const attr = tRaw.replace(/"/g, "&quot;");
-                    return `
-                      <span class="tag-chip tag-click" data-tag="${attr}">
-                        ${label}
-                      </span>
-                    `;
-                  })
-                  .join("")
-              : "<span style='color:#6b7280;'>No tags</span>";
-
-          const bandcampLink = r.url
-            ? `<a class="release-link" href="${r.url}" target="_blank" rel="noreferrer">Open on Bandcamp</a>`
-            : "";
-
-          td.innerHTML = `
-            <div class="inline-details">
-              <div class="inline-details-header">
-                <div><span class="inline-details-label">Artist:</span> ${String(
-                  r.artist_name || ""
-                ).replace(/</g, "&lt;")}</div>
-                <div><span class="inline-details-label">Title:</span> ${String(
-                  r.title || ""
-                ).replace(/</g, "&lt;")}</div>
-                <div><span class="inline-details-label">Release date:</span> ${dateStr}</div>
-                <div><span class="inline-details-label">Free / NYP:</span> ${freeLabel}</div>
-                <div><span class="inline-details-label">Seen:</span> ${seenStr}</div>
-                <div>${bandcampLink}</div>
-              </div>
-
-              <div class="inline-details-tags">
-                <span class="inline-details-label">Tags:</span>
-                ${tagsHtml}
-              </div>
-
-              ${tracksHtml}
-            </div>
-          `;
-
-          // Make tags inside inline details clickable as filters
-          wireTagClickElements(td);
-        } catch (err) {
-          console.error("Error loading inline details", err);
-          td.innerHTML =
-            '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
-        }
-      }
+		  wireTagClickElements(td);
+		} catch (err) {
+		  console.error("Error loading inline details:", err);
+		  td.innerHTML =
+			'<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
+		}
+	  
+		return true; // expanded
+	  }
 
 
-      // ---------- Releases listing logic ----------
+  	// Create a placeholder row right under the clicked row
 
       // ---------- Releases listing logic ----------
 
@@ -1087,7 +1343,8 @@
           if (!Array.isArray(rows) || rows.length === 0) {
             if (pageToLoad === 1) {
               releasesBody.innerHTML =
-                '<tr><td colspan="9">No releases found for this filter set.</td></tr>';
+                '<tr><td colspan="10">No releases found for this filter set.</td></tr>';
+
             }
             hasMoreReleases = false;
           } else {
@@ -1127,37 +1384,50 @@
 
               const encounters = Number(row.unique_visits ?? 0);
 
-              tr.innerHTML = `
-                <td style="display:none;">
-  				  ${row.id || ""}
+			  tr.innerHTML = `
+				<td style="display:none;">
+				  ${row.id || ""}
 				</td>
+			  
+				<td>${row.artist_name || ""}</td>
+				<td>${row.title || ""}</td>
+				<td>${row.price_label || ""}</td>
+				<td>${dateStr}</td>
+				<td>${tagsHtml}</td>
+				<td>${encounters}</td>
+			  
+				<td>${
+				  row.url
+					? '<a class="release-link" href="' +
+					  row.url +
+					  '" target="_blank" rel="noreferrer">Bandcamp</a>'
+					: ""
+				}</td>
+			  
+				<td data-discogs-cell="1" data-release-id="${row.id || ""}">
+				  <span class="discogs-none">-</span>
+				</td>
+			  `;
+			  
+			  tr.style.cursor = "pointer";
+			  tr.addEventListener("click", async () => {
+				// Expand/collapse inline
+				const didExpand = await toggleInlineDetails(tr, row.id);
+			  
+				// Only run Discogs matching on EXPAND (never on collapse)
+				if (didExpand) {
+				  triggerDiscogsMatchForReleaseId(row.id);
+				}
+			  });
 
-                <td>${row.artist_name || ""}</td>
-                <td>${row.title || ""}</td>
-                <td>${row.price_label || ""}</td>
-                <td>${freeLabel}</td>
-                <td>${dateStr}</td>
-                <td>${tagsHtml}</td>
-                <td>${encounters}</td>
-                <td>${
-                  row.url
-                    ? '<a class="release-link" href="' +
-                      row.url +
-                      '" target="_blank" rel="noreferrer">Bandcamp</a>'
-                    : ""
-                }</td>
-              `;
 
-              tr.style.cursor = "pointer";
-              tr.addEventListener("click", () => {
-                // Expand/collapse inline AND still update the side details panel
-                toggleInlineDetails(tr, row.id);
-                loadReleaseDetails(row.id);
-              });
 
               releasesBody.appendChild(tr);
               wireTagClickElements(tr);
             }
+
+            // Fill Discogs confidence cells for the rows we just rendered
+            hydrateDiscogsCellsForVisibleRows(rows);
 
             currentPage = pageToLoad;
 
@@ -1173,7 +1443,8 @@
           statusEl.textContent = "Error loading releases.";
           if (currentPage === 0) {
             releasesBody.innerHTML =
-              '<tr><td colspan="9">Error loading releases.</td></tr>';
+              '<tr><td colspan="10">Error loading releases.</td></tr>';
+
           }
         } finally {
           isLoadingReleases = false;
@@ -1475,61 +1746,75 @@
 	  	}		
 	  }
 
-// Safe to add even if you have other DOMContentLoaded listeners:
-document.addEventListener("DOMContentLoaded", () => {
-  loadStats();
-});
-
-// Global click handler for "Copy ID" buttons
-document.addEventListener("click", async (event) => {
-  const button = event.target.closest(".copy-id-btn");
-  if (!button) return;
-
-  // Avoid triggering the row click that loads details
-  event.stopPropagation();
-
-  const id = button.dataset.id;
-  if (!id) return;
-
-  try {
-    await navigator.clipboard.writeText(id);
-    const originalText = button.textContent;
-    button.textContent = "Copied!";
-    setTimeout(() => {
-      button.textContent = originalText || "Copy ID";
-    }, 1000);
-  } catch (err) {
-    console.warn("[Bitrot] Failed to copy ID:", err);
-    const originalText = button.textContent;
-    button.textContent = "Copy failed";
-    setTimeout(() => {
-      button.textContent = originalText || "Copy ID";
-    }, 1200);
-  }
-});
-
-// Global click handler for artist filter buttons
-document.addEventListener("click", (event) => {
-  const button = event.target.closest(".artist-filter-btn");
-  if (!button) return;
-
-  event.stopPropagation();
-
-  const artistName = button.dataset.artist || "";
-  const artistInput = document.getElementById("filter-artist");
-  if (artistInput) {
-    artistInput.value = artistName;
-  }
-
-  if (typeof currentFilters === "object") {
-    currentFilters.artist = artistName;
-    currentFilters.page = 1;
-  }
-
-  if (typeof loadReleases === "function") {
-    loadReleases();
-  }
-});
+	// Safe to add even if you have other DOMContentLoaded listeners:
+	document.addEventListener("DOMContentLoaded", () => {
+	  loadStats();
+	});
+	
+	// Global click handler for "Copy ID" buttons
+	document.addEventListener("click", async (event) => {
+	  // Discogs refresh button (dev-only)
+	  const refreshBtn = event.target.closest(".discogs-refresh-btn");
+	  if (refreshBtn) {
+		event.stopPropagation();
+		const releaseId = refreshBtn.dataset.releaseId;
+		if (!releaseId) return;
+	
+		// Force bypass both frontend + backend cooldowns
+		await triggerDiscogsMatchForReleaseId(releaseId, { force: true });
+		return;
+	  }
+	
+	  // Copy ID button
+	  const button = event.target.closest(".copy-id-btn");
+	  if (!button) return;
+	
+	  // Avoid triggering the row click that loads details
+	  event.stopPropagation();
+	
+	  const id = button.dataset.id;
+	  if (!id) return;
+	
+	  try {
+		await navigator.clipboard.writeText(id);
+		const originalText = button.textContent;
+		button.textContent = "Copied!";
+		setTimeout(() => {
+		  button.textContent = originalText || "Copy ID";
+		}, 1000);
+	  } catch (err) {
+		console.warn("[Bitrot] Failed to copy ID:", err);
+		const originalText = button.textContent;
+		button.textContent = "Copy failed";
+		setTimeout(() => {
+		  button.textContent = originalText || "Copy ID";
+		}, 1200);
+	  }
+	});
+	
+	
+	// Global click handler for artist filter buttons
+	document.addEventListener("click", (event) => {
+	  const button = event.target.closest(".artist-filter-btn");
+	  if (!button) return;
+	
+	  event.stopPropagation();
+	
+	  const artistName = button.dataset.artist || "";
+	  const artistInput = document.getElementById("filter-artist");
+	  if (artistInput) {
+		artistInput.value = artistName;
+	  }
+	
+	  if (typeof currentFilters === "object") {
+		currentFilters.artist = artistName;
+		currentFilters.page = 1;
+	  }
+	
+	  if (typeof loadReleases === "function") {
+		loadReleases();
+	  }
+	});
 
 
     </script>

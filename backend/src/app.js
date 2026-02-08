@@ -1,5 +1,7 @@
 console.log("APP.JS LOADED");
 
+dotenv.config();
+
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
@@ -9,8 +11,7 @@ import releaseRoutes from "./routes/release.js";
 import encounterRoutes from "./routes/encounter.js";
 import spotifyAuthRoutes from "./routes/spotifyAuth.js";
 import statsRoutes from "./routes/stats.js";
-
-dotenv.config();
+import discogsRoutes from "./routes/discogs.js";
 
 const app = express();
 
@@ -22,6 +23,12 @@ app.use(cors());
 // Serve the simple frontend from /public
 app.use(express.static("public"));
 
+// Stats
+app.use("/stats", statsRoutes);
+
+// Discogs routes MUST come before root-mounted Spotify routes
+app.use("/discogs", discogsRoutes);
+
 /**
  * Spotify auth routes mounted at root:
  *  - GET /login
@@ -29,8 +36,6 @@ app.use(express.static("public"));
  */
 app.use("/", spotifyAuthRoutes);
 
-// Stats
-app.use("/stats", statsRoutes);
 
 /**
  * Release detail endpoint
