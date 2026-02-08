@@ -137,7 +137,17 @@ export async function releaseLookup(req, res) {
     }
 
     await pool.query("COMMIT");
-    return res.json({ release_id: releaseId });
+    
+    	// After successful creation, run Discogs matching in background
+	import { matchDiscogsForRelease } from "../services/discogsMatcher.js";
+
+		// fire and forget — do not block the request
+	matchDiscogsForRelease(releaseRow).catch(err => {
+  	console.error("Discogs matching failed (background):", err);
+	});
+
+		// Send response immediately
+	return res.json({ release_id });
   } catch (err) {
     await pool.query("ROLLBACK");
     console.error(err);
