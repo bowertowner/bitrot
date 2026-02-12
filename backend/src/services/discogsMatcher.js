@@ -1,38 +1,39 @@
-// backend/src/services/discogsMatcher.js
-
 import pool from "../db/pool.js";
 import {
   discogsSearchRelease,
   discogsGetRelease,
-  discogsGetMaster,
   isDiscogsTemporaryError,
   isDiscogsConfigError,
 } from "./discogsClient.js";
 
-// Utility: normalize strings for scoring
+/**
+ * Discogs matching + enrichment hydration (Option #1: columns on releases)
+ *
+ * Rules:
+ * - If releases.discogs_release_id exists: refresh enrichment with ONE Discogs API call
+ *   (GET /releases/:id). No search.
+ * - If not matched: search -> pick best -> hydrate once on "matched" only -> persist enrichment.
+ * - Persist enrichment: genres/styles/cover+thumb/country/labels/rating avg+count + refreshed timestamps.
+ * - Cache raw JSON in discogs_entities.
+ */
+
 function normalize(str) {
   if (!str) return "";
   return String(str)
     .toLowerCase()
-    .replace(/\(\d+\)/g, "") // remove Discogs artist disambiguators like (26)
-    .replace(/[^\w\s]/g, "")
+    .replace(/\(\d+\)/g, "")
+    .replace(/[^\w\s]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
-// Discogs search results often use title: "Artist - Release Title"
 function parseDiscogsSearchHit(hit) {
   const raw = String(hit?.title || "");
   const parts = raw.split(" - ");
   if (parts.length >= 2) {
-    const artist = parts[0].trim();
-    const title = parts.slice(1).join(" - ").trim();
-    return { artist, title };
+    return { artist: parts[0].trim(), title: parts.slice(1).join(" - ").trim() };
   }
-  return {
-    artist: String(hit?.artist || "").trim(),
-    title: raw.trim(),
-  };
+  return { artist: String(hit?.artist || "").trim(), title: raw.trim() };
 }
 
 function scoreResult(releaseRow, hit) {
@@ -45,192 +46,204 @@ function scoreResult(releaseRow, hit) {
 
   let score = 0;
 
-  // Title score
   if (relTitle && hitTitle && relTitle === hitTitle) score += 40;
-  else if (
-    relTitle &&
-    hitTitle &&
-    (hitTitle.includes(relTitle) || relTitle.includes(hitTitle))
-  ) {
+  else if (relTitle && hitTitle && (hitTitle.includes(relTitle) || relTitle.includes(hitTitle))) {
     score += 25;
   }
 
-  // Artist score
   if (relArtist && hitArtist && relArtist === hitArtist) score += 30;
-  else if (
-    relArtist &&
-    hitArtist &&
-    (hitArtist.includes(relArtist) || relArtist.includes(hitArtist))
-  ) {
+  else if (relArtist && hitArtist && (hitArtist.includes(relArtist) || relArtist.includes(hitArtist))) {
     score += 15;
   }
 
-  // Year score
   const hitYear = hit?.year ? Number(hit.year) : null;
   const relYear = releaseRow.release_date
     ? new Date(releaseRow.release_date).getFullYear()
     : null;
-
   if (hitYear && relYear && hitYear === relYear) score += 10;
 
   return Math.min(score, 100);
 }
 
-function splitArtists(raw) {
-  const s = (raw || "").trim();
-  if (!s) return [];
-
-  const parts = s
-    .split(/\s*(\+|&|,|\/| x |×| feat\. | featuring | w\/ )\s*/i)
-    .map((p) => p.trim())
-    .filter(
-      (p) => p && !["+", "&", ",", "/", "x", "×"].includes(p.toLowerCase())
-    );
-
-  const seen = new Set();
-  const out = [];
-  for (const p of parts) {
-    const key = p.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(p);
-    }
-  }
-  return out;
-}
-
-function stripArtistPrefixFromTitle(artist, title) {
-  const a = (artist || "").trim();
-  const t = (title || "").trim();
-  if (!a || !t) return t;
-
-  const separators = [" - ", " – ", " — ", ": "];
-  for (const sep of separators) {
-    if (t.toLowerCase().startsWith((a + sep).toLowerCase())) {
-      return t.slice((a + sep).length).trim();
-    }
-  }
-  return t;
-}
-
-function titleVariants(rawTitle, rawArtist) {
-  const original = (rawTitle || "").trim();
-  if (!original) return [];
-
-  const variants = new Set();
-  variants.add(original);
-
-  const stripped = stripArtistPrefixFromTitle(rawArtist, original);
-  if (stripped && stripped !== original) variants.add(stripped);
-
-  // Soundtrack normalization
-  variants.add(original.replace(/\bOST\b/i, "").trim());
-  variants.add(original.replace(/\bOriginal Soundtrack\b/i, "").trim());
-  variants.add(original.replace(/\bSoundtrack\b/i, "").trim());
-
-  // Remove common "digital" suffixes
-  const digitalPatterns = [
-    /\s*\(digital\)\s*/gi,
-    /\s*\(digitals\)\s*/gi,
-    /\s*\(digital release\)\s*/gi,
-  ];
-  for (const pat of digitalPatterns) {
-    for (const v of [...variants]) {
-      variants.add(v.replace(pat, " ").trim());
-    }
-  }
-
-  return [...variants]
-    .map((x) => x.replace(/\s{2,}/g, " ").trim())
+function safeStringArray(arr) {
+  if (!Array.isArray(arr)) return null;
+  const out = arr
+    .map((x) => (x == null ? "" : String(x).trim()))
     .filter(Boolean);
+  return out.length ? out : null;
 }
 
-async function cacheSearchResults(results) {
-  for (const r of results) {
-    if (!r || typeof r.id !== "number") continue;
+function pickImages(releaseJson) {
+  const images = Array.isArray(releaseJson?.images) ? releaseJson.images : [];
+  if (!images.length) return { coverUrl: null, thumbUrl: null };
 
-    await pool.query(
-      `
-      INSERT INTO discogs_entities (discogs_id, entity_type, raw_json)
-      VALUES ($1, 'search_result', $2)
-      ON CONFLICT (discogs_id, entity_type)
-      DO UPDATE SET raw_json = EXCLUDED.raw_json,
-                    last_synced_at = now()
-      `,
-      [r.id, r]
-    );
-  }
+  const primary =
+    images.find((img) => String(img?.type || "").toLowerCase() === "primary") ||
+    images[0];
+
+  const coverUrl =
+    (primary?.uri && String(primary.uri)) ||
+    (primary?.resource_url && String(primary.resource_url)) ||
+    null;
+
+  const thumbUrl =
+    (primary?.uri150 && String(primary.uri150)) ||
+    (primary?.uri && String(primary.uri)) ||
+    null;
+
+  return { coverUrl, thumbUrl };
 }
 
-async function cacheReleaseAndMasterIfPossible(discogsReleaseId, discogsMasterId) {
-  if (!discogsReleaseId) return;
-
-  try {
-    const full = await discogsGetRelease(discogsReleaseId);
-
-    await pool.query(
-      `
-      INSERT INTO discogs_entities (discogs_id, entity_type, raw_json)
-      VALUES ($1, 'release', $2)
-      ON CONFLICT (discogs_id, entity_type)
-      DO UPDATE SET raw_json = EXCLUDED.raw_json,
-                    last_synced_at = now()
-      `,
-      [discogsReleaseId, full]
-    );
-
-    if (discogsMasterId) {
-      const master = await discogsGetMaster(discogsMasterId);
-
-      await pool.query(
-        `
-        INSERT INTO discogs_entities (discogs_id, entity_type, raw_json)
-        VALUES ($1, 'master', $2)
-        ON CONFLICT (discogs_id, entity_type)
-        DO UPDATE SET raw_json = EXCLUDED.raw_json,
-                      last_synced_at = now()
-        `,
-        [discogsMasterId, master]
-      );
-    }
-  } catch (err) {
-    // Temporary errors can happen here too; don't poison the match table.
-    console.warn("[Discogs] cache release/master failed:", err?.message || err);
-  }
+function extractLabels(releaseJson) {
+  const labels = Array.isArray(releaseJson?.labels) ? releaseJson.labels : [];
+  const names = labels
+    .map((l) => (l?.name == null ? "" : String(l.name).trim()))
+    .filter(Boolean);
+  return names.length ? names : null;
 }
 
-async function runSearchAttempts({ artistCandidates, titleCandidates, year }) {
-  const attempts = [];
-  let bestSearch = null;
-  let bestResults = [];
+function extractRating(releaseJson) {
+  const avgRaw = releaseJson?.community?.rating?.average;
+  const countRaw = releaseJson?.community?.rating?.count;
 
-  const MAX_ATTEMPTS = 12;
+  const avg = avgRaw == null ? null : Number(avgRaw);
+  const count = countRaw == null ? null : Number(countRaw);
 
-  for (const a of artistCandidates) {
-    for (const t of titleCandidates) {
-      const attempt = year ? { artist: a, title: t, year } : { artist: a, title: t };
-      attempts.push(attempt);
+  return {
+    average: Number.isFinite(avg) ? avg : null,
+    count: Number.isFinite(count) ? count : null,
+  };
+}
 
-      const search = await discogsSearchRelease(attempt);
-      const results = Array.isArray(search?.results) ? search.results.slice(0, 5) : [];
+async function upsertDiscogsEntity({ discogsId, entityType, rawJson }) {
+  if (!discogsId || !entityType || !rawJson) return;
 
-      if (results.length > 0) {
-        bestSearch = search;
-        bestResults = results;
-        return { attempts, bestSearch, bestResults };
-      }
+  await pool.query(
+    `
+    INSERT INTO discogs_entities (discogs_id, entity_type, raw_json, last_synced_at)
+    VALUES ($1, $2, $3::jsonb, now())
+    ON CONFLICT (discogs_id, entity_type)
+    DO UPDATE SET raw_json = EXCLUDED.raw_json,
+                  last_synced_at = now()
+    `,
+    [discogsId, entityType, JSON.stringify(rawJson)]
+  );
+}
 
-      if (attempts.length >= MAX_ATTEMPTS) {
-        return { attempts, bestSearch, bestResults };
-      }
-    }
+async function insertMatchRow({
+  releaseId,
+  discogsReleaseId,
+  discogsMasterId,
+  confidenceScore,
+  matchMethod,
+  status,
+}) {
+  await pool.query(
+    `
+    INSERT INTO release_discogs_matches
+        (release_id, discogs_release_id, discogs_master_id, confidence_score, match_method, status)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    `,
+    [releaseId, discogsReleaseId, discogsMasterId, confidenceScore, matchMethod, status]
+  );
+}
 
-    if (attempts.length >= MAX_ATTEMPTS) {
-      return { attempts, bestSearch, bestResults };
-    }
-  }
+async function persistReleaseEnrichment({
+  releaseId,
+  discogsReleaseId,
+  discogsMasterId,
+  confidenceScore,
+  releaseJson,
+}) {
+  const genres = safeStringArray(releaseJson?.genres);
+  const styles = safeStringArray(releaseJson?.styles);
+  const country = releaseJson?.country ? String(releaseJson.country).trim() : null;
+  const labels = extractLabels(releaseJson);
+  const { coverUrl, thumbUrl } = pickImages(releaseJson);
+  const rating = extractRating(releaseJson);
 
-  return { attempts, bestSearch, bestResults };
+  await pool.query(
+    `
+    UPDATE releases
+    SET
+      discogs_release_id        = COALESCE($2, discogs_release_id),
+      discogs_master_id         = COALESCE($3, discogs_master_id),
+      discogs_confidence        = COALESCE($4, discogs_confidence),
+      discogs_matched_at        = COALESCE(discogs_matched_at, now()),
+
+      discogs_genres            = $5,
+      discogs_styles            = $6,
+      discogs_country           = $7,
+      discogs_labels            = $8,
+      discogs_cover_image_url   = $9,
+      discogs_thumb_url         = $10,
+      discogs_rating_average    = $11,
+      discogs_rating_count      = $12,
+
+      discogs_last_refreshed_at = now(),
+      discogs_refreshed_at      = now()
+    WHERE id = $1
+    `,
+    [
+      releaseId,
+      discogsReleaseId,
+      discogsMasterId,
+      confidenceScore,
+      genres,
+      styles,
+      country,
+      labels,
+      coverUrl,
+      thumbUrl,
+      rating.average,
+      rating.count,
+    ]
+  );
+}
+
+async function refreshExistingDiscogsMatch(releaseRow) {
+  const releaseId = releaseRow.id;
+  const discogsReleaseId = releaseRow.discogs_release_id;
+
+  const releaseJson = await discogsGetRelease(discogsReleaseId);
+
+  await upsertDiscogsEntity({
+    discogsId: discogsReleaseId,
+    entityType: "release",
+    rawJson: releaseJson,
+  });
+
+  const discogsMasterId =
+    releaseJson?.master_id != null ? Number(releaseJson.master_id) : null;
+
+  const confidenceScore =
+    releaseRow.discogs_confidence != null ? Number(releaseRow.discogs_confidence) : 100;
+
+  await insertMatchRow({
+    releaseId,
+    discogsReleaseId,
+    discogsMasterId,
+    confidenceScore,
+    matchMethod: "refresh_existing",
+    status: "matched",
+  });
+
+  await persistReleaseEnrichment({
+    releaseId,
+    discogsReleaseId,
+    discogsMasterId,
+    confidenceScore,
+    releaseJson,
+  });
+
+  return {
+    release_id: releaseId,
+    status: "matched",
+    confidence_score: confidenceScore,
+    discogs_release_id: discogsReleaseId,
+    discogs_master_id: discogsMasterId,
+    refreshed: true,
+  };
 }
 
 export async function matchDiscogsForRelease(releaseRow) {
@@ -238,20 +251,47 @@ export async function matchDiscogsForRelease(releaseRow) {
     throw new Error("matchDiscogsForRelease: missing releaseRow.id");
   }
 
-  const rawArtist = (releaseRow.artist_name || "").trim();
-  const rawTitle = (releaseRow.title || "").trim();
+  // Fast path: already matched -> ONE API call refresh
+  if (Number.isInteger(releaseRow.discogs_release_id)) {
+    try {
+      return await refreshExistingDiscogsMatch(releaseRow);
+    } catch (err) {
+      if (isDiscogsConfigError(err)) {
+        return {
+          release_id: releaseRow.id,
+          status: "rejected",
+          confidence_score: 0,
+          discogs_release_id: releaseRow.discogs_release_id || null,
+          discogs_master_id: releaseRow.discogs_master_id || null,
+          debug: { reason: "discogs_config_error", message: err.message },
+        };
+      }
+      if (isDiscogsTemporaryError(err)) {
+        return {
+          release_id: releaseRow.id,
+          status: "rejected",
+          confidence_score: 0,
+          discogs_release_id: releaseRow.discogs_release_id || null,
+          discogs_master_id: releaseRow.discogs_master_id || null,
+          debug: { reason: "discogs_temporary_error_on_refresh", message: err.message, status: err.status },
+        };
+      }
+      return {
+        release_id: releaseRow.id,
+        status: "rejected",
+        confidence_score: 0,
+        discogs_release_id: releaseRow.discogs_release_id || null,
+        discogs_master_id: releaseRow.discogs_master_id || null,
+        debug: { reason: "refresh_failed", message: err?.message || String(err) },
+      };
+    }
+  }
 
-  const year = releaseRow.release_date
-    ? new Date(releaseRow.release_date).getFullYear()
-    : undefined;
-
-  console.log(`[Discogs] Matching release: ${releaseRow.id}`);
-  console.log(
-    `[Discogs] Using raw artist="${rawArtist}" raw title="${rawTitle}" year="${year || ""}"`
-  );
+  const rawArtist = String(releaseRow.artist_name || "").trim();
+  const rawTitle = String(releaseRow.title || "").trim();
+  const year = releaseRow.release_date ? new Date(releaseRow.release_date).getFullYear() : null;
 
   if (!rawArtist || !rawTitle) {
-    // Do not write a match row if we don't have key fields.
     return {
       release_id: releaseRow.id,
       status: "rejected",
@@ -262,105 +302,55 @@ export async function matchDiscogsForRelease(releaseRow) {
     };
   }
 
-  const artistParts = splitArtists(rawArtist);
-  const artistCandidates = [rawArtist, ...artistParts];
+  const artistCandidates = [rawArtist];
+  const splitSlash = rawArtist.split("/")[0]?.trim();
+  const splitComma = rawArtist.split(",")[0]?.trim();
+  if (splitSlash && splitSlash !== rawArtist) artistCandidates.push(splitSlash);
+  if (splitComma && splitComma !== rawArtist) artistCandidates.push(splitComma);
 
-  const seenA = new Set();
-  const uniqueArtistCandidates = [];
-  for (const a of artistCandidates) {
-    const key = a.toLowerCase();
-    if (!seenA.has(key) && a.trim()) {
-      seenA.add(key);
-      uniqueArtistCandidates.push(a.trim());
-    }
-  }
-
-  const titleCandidates = titleVariants(rawTitle, rawArtist);
-
-  let attempts = [];
+  const attemptsTried = [];
   let bestSearch = null;
-  let bestResults = [];
 
-  try {
-    const r1 = await runSearchAttempts({
-      artistCandidates: uniqueArtistCandidates,
-      titleCandidates,
-      year: year || undefined,
+  for (const a of artistCandidates.slice(0, 3)) {
+    try {
+      const attempt = year ? { artist: a, title: rawTitle, year } : { artist: a, title: rawTitle };
+      attemptsTried.push(attempt);
+      const search = await discogsSearchRelease(attempt);
+      bestSearch = search;
+      if (Array.isArray(search?.results) && search.results.length) break;
+    } catch (err) {
+      if (isDiscogsConfigError(err)) {
+        return {
+          release_id: releaseRow.id,
+          status: "rejected",
+          confidence_score: 0,
+          discogs_release_id: null,
+          discogs_master_id: null,
+          debug: { reason: "discogs_config_error", message: err.message },
+        };
+      }
+      if (isDiscogsTemporaryError(err)) continue;
+      return {
+        release_id: releaseRow.id,
+        status: "rejected",
+        confidence_score: 0,
+        discogs_release_id: null,
+        discogs_master_id: null,
+        debug: { reason: "discogs_search_error", message: String(err?.message || err) },
+      };
+    }
+  }
+
+  const results = Array.isArray(bestSearch?.results) ? bestSearch.results : [];
+  if (!results.length) {
+    await insertMatchRow({
+      releaseId: releaseRow.id,
+      discogsReleaseId: null,
+      discogsMasterId: null,
+      confidenceScore: 0,
+      matchMethod: "search_title_artist",
+      status: "rejected",
     });
-    attempts = r1.attempts;
-    bestSearch = r1.bestSearch;
-    bestResults = r1.bestResults;
-
-    if (bestResults.length === 0) {
-      const r2 = await runSearchAttempts({
-        artistCandidates: uniqueArtistCandidates,
-        titleCandidates,
-        year: undefined,
-      });
-
-      attempts = attempts.concat(
-        r2.attempts.map((a) => ({ ...a, note: "no-year-fallback" }))
-      );
-      bestSearch = r2.bestSearch || bestSearch;
-      bestResults = r2.bestResults;
-    }
-  } catch (err) {
-    // IMPORTANT: if Discogs is temporarily failing (429/502/HTML), do not insert
-    // a "rejected" row. This prevents poison “not found” results.
-    if (isDiscogsConfigError(err)) {
-      console.error("[Discogs] config error:", err.message);
-      return {
-        release_id: releaseRow.id,
-        status: "rejected",
-        confidence_score: 0,
-        discogs_release_id: null,
-        discogs_master_id: null,
-        debug: { reason: "discogs_not_configured" },
-      };
-    }
-
-    if (isDiscogsTemporaryError(err)) {
-      console.warn("[Discogs] temporary error (no DB write):", err.message);
-      return {
-        release_id: releaseRow.id,
-        status: "rejected",
-        confidence_score: 0,
-        discogs_release_id: null,
-        discogs_master_id: null,
-        debug: {
-          reason: "discogs_temporary_error",
-          message: err.message,
-          status: err.status,
-          attempts_tried: attempts.length,
-        },
-      };
-    }
-
-    console.error("[Discogs] search error:", err);
-    return {
-      release_id: releaseRow.id,
-      status: "rejected",
-      confidence_score: 0,
-      discogs_release_id: null,
-      discogs_master_id: null,
-      debug: { reason: "discogs_search_error", message: String(err?.message || err) },
-    };
-  }
-
-  if (bestResults.length > 0) {
-    await cacheSearchResults(bestResults);
-  }
-
-  if (bestResults.length === 0) {
-    // This is a true "no results" case. Write rejected row so it "sticks".
-    await pool.query(
-      `
-      INSERT INTO release_discogs_matches
-          (release_id, discogs_release_id, discogs_master_id, confidence_score, match_method, status)
-      VALUES ($1, NULL, NULL, 0, 'search_title_artist', 'rejected')
-      `,
-      [releaseRow.id]
-    );
 
     return {
       release_id: releaseRow.id,
@@ -368,24 +358,11 @@ export async function matchDiscogsForRelease(releaseRow) {
       confidence_score: 0,
       discogs_release_id: null,
       discogs_master_id: null,
-      debug: {
-        reason: "no_discogs_results",
-        raw_artist: rawArtist,
-        raw_title: rawTitle,
-        year: year || null,
-        attempts_tried: attempts.length,
-        discogs_pagination_items:
-          typeof bestSearch?.pagination?.items === "number"
-            ? bestSearch.pagination.items
-            : 0,
-      },
+      debug: { reason: "no_discogs_results", raw_artist: rawArtist, raw_title: rawTitle, year, attempts_tried: attemptsTried.length },
     };
   }
 
-  const scored = bestResults.map((r) => ({
-    hit: r,
-    score: scoreResult(releaseRow, r),
-  }));
+  const scored = results.slice(0, 10).map((r) => ({ hit: r, score: scoreResult(releaseRow, r) }));
   scored.sort((a, b) => b.score - a.score);
 
   const best = scored[0];
@@ -395,40 +372,58 @@ export async function matchDiscogsForRelease(releaseRow) {
   if (bestScore >= 75) status = "matched";
   else if (bestScore >= 50) status = "suggested";
 
-  const discogsReleaseId = best.hit.id || null;
-  const discogsMasterId = best.hit.master_id || null;
+  const discogsReleaseId = best.hit?.id ?? null;
+  const discogsMasterId = best.hit?.master_id ?? null;
 
-  await pool.query(
-    `
-    INSERT INTO release_discogs_matches
-        (release_id, discogs_release_id, discogs_master_id, confidence_score, match_method, status)
-    VALUES ($1, $2, $3, $4, 'search_title_artist', $5)
-    `,
-    [releaseRow.id, discogsReleaseId, discogsMasterId, bestScore, status]
-  );
+  await insertMatchRow({
+    releaseId: releaseRow.id,
+    discogsReleaseId,
+    discogsMasterId,
+    confidenceScore: bestScore,
+    matchMethod: "search_title_artist",
+    status,
+  });
 
-  // Cache release JSON for both matched and suggested
-  if (discogsReleaseId && (status === "matched" || status === "suggested")) {
-    await cacheReleaseAndMasterIfPossible(discogsReleaseId, discogsMasterId);
-  }
-
-  // Only write releases.* Discogs columns for matched
   if (status === "matched" && discogsReleaseId) {
     try {
-      await pool.query(
-        `
-        UPDATE releases
-        SET
-          discogs_release_id = $2,
-          discogs_master_id  = $3,
-          discogs_confidence = $4,
-          discogs_matched_at = now()
-        WHERE id = $1
-        `,
-        [releaseRow.id, discogsReleaseId, discogsMasterId, bestScore]
-      );
+      const releaseJson = await discogsGetRelease(discogsReleaseId);
+
+      await upsertDiscogsEntity({
+        discogsId: discogsReleaseId,
+        entityType: "release",
+        rawJson: releaseJson,
+      });
+
+      const masterIdFromJson =
+        releaseJson?.master_id != null ? Number(releaseJson.master_id) : discogsMasterId;
+
+      await persistReleaseEnrichment({
+        releaseId: releaseRow.id,
+        discogsReleaseId,
+        discogsMasterId: masterIdFromJson,
+        confidenceScore: bestScore,
+        releaseJson,
+      });
     } catch (err) {
-      console.error("[Discogs] error updating releases table:", err);
+      console.warn("[Discogs] hydrate failed after match:", err?.message || err);
+
+      // Still write pointers if hydration failed
+      try {
+        await pool.query(
+          `
+          UPDATE releases
+          SET
+            discogs_release_id = $2,
+            discogs_master_id  = $3,
+            discogs_confidence = $4,
+            discogs_matched_at = now()
+          WHERE id = $1
+          `,
+          [releaseRow.id, discogsReleaseId, discogsMasterId, bestScore]
+        );
+      } catch (e2) {
+        console.error("[Discogs] pointer update failed after hydrate error:", e2?.message || e2);
+      }
     }
   }
 
@@ -438,5 +433,12 @@ export async function matchDiscogsForRelease(releaseRow) {
     confidence_score: bestScore,
     discogs_release_id: discogsReleaseId,
     discogs_master_id: discogsMasterId,
+    debug: {
+      raw_artist: rawArtist,
+      raw_title: rawTitle,
+      year: year || null,
+      attempts_tried: attemptsTried.length,
+      best_title: String(best.hit?.title || ""),
+    },
   };
 }
