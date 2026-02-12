@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bitrot — Stats</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+        background: #0b0f19;
+        color: #e5e7eb;
+        margin: 0;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        background: rgba(0,0,0,0.25);
+        position: sticky;
+        top: 0;
+        backdrop-filter: blur(10px);
+        z-index: 10;
+      }
+      header a {
+        color: #9ca3af;
+        text-decoration: none;
+        font-size: 13px;
+      }
+      header a:hover { color: #fff; }
+
+      .wrap { padding: 16px 18px 28px; max-width: 1200px; margin: 0 auto; }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 980px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+
+      .panel {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        padding: 12px;
+      }
+
+      h1 { margin: 0; font-size: 16px; }
+      h2 { margin: 0 0 8px; font-size: 14px; }
+      .sub { margin: 0 0 10px; font-size: 12px; color: #9ca3af; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      thead th {
+        text-align: left;
+        padding: 8px 8px;
+        color: #9ca3af;
+        border-bottom: 1px solid rgba(255,255,255,0.10);
+        font-weight: 600;
+      }
+      tbody td {
+        padding: 8px 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        vertical-align: top;
+      }
+      tbody tr:hover {
+        background: rgba(255,255,255,0.03);
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+      @media (max-width: 980px) {
+        .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      .kpi {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .kpi .label { font-size: 11px; color: #9ca3af; }
+      .kpi .value { font-size: 16px; margin-top: 4px; }
+
+      .mini {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 980px) {
+        .mini { grid-template-columns: 1fr; }
+      }
+      .barrow {
+        display: grid;
+        grid-template-columns: 120px 1fr 60px;
+        gap: 10px;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 12px;
+      }
+      .bar {
+        height: 8px;
+        background: rgba(255,255,255,0.06);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .bar > div {
+        height: 100%;
+        background: linear-gradient(90deg, #22c55e, #3b82f6);
+        width: 0%;
+      }
+
+      .hint { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+      .clickable { cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Bitrot / Stats</h1>
+      </div>
+      <div style="display:flex; gap:14px; align-items:center;">
+        <a href="/">← Back to releases</a>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="panel" style="margin-bottom:14px;">
+        <h2>Summary</h2>
+        <p class="sub">Live counts from <code>/stats/summary</code>.</p>
+        <div class="kpis">
+          <div class="kpi"><div class="label">Total releases</div><div class="value" id="kpi-releases">—</div></div>
+          <div class="kpi"><div class="label">Unique artists</div><div class="value" id="kpi-artists">—</div></div>
+          <div class="kpi"><div class="label">Total tracks</div><div class="value" id="kpi-tracks">—</div></div>
+          <div class="kpi"><div class="label">Free/NYP releases</div><div class="value" id="kpi-free-releases">—</div></div>
+          <div class="kpi"><div class="label">Free/NYP tracks</div><div class="value" id="kpi-free-tracks">—</div></div>
+        </div>
+
+        <div class="mini">
+          <div class="panel" style="padding:10px;">
+            <h2 style="margin-bottom:6px;">Free-ness ratio</h2>
+            <div class="barrow" style="border-bottom:none;">
+              <div style="color:#9ca3af;">Releases</div>
+              <div class="bar"><div id="bar-free-releases"></div></div>
+              <div id="pct-free-releases" style="text-align:right; color:#9ca3af;">—</div>
+            </div>
+            <div class="barrow" style="border-bottom:none;">
+              <div style="color:#9ca3af;">Tracks</div>
+              <div class="bar"><div id="bar-free-tracks"></div></div>
+              <div id="pct-free-tracks" style="text-align:right; color:#9ca3af;">—</div>
+            </div>
+            <div class="hint">These are simple derived metrics (placeholders for richer charts later).</div>
+          </div>
+
+          <div class="panel" style="padding:10px;">
+            <h2 style="margin-bottom:6px;">More ideas (placeholders)</h2>
+            <ul style="margin:0; padding-left:18px; color:#9ca3af; font-size:12px; line-height:1.5;">
+              <li>Top “most encountered” releases</li>
+              <li>Newest releases per day/week</li>
+              <li>Discogs match rate + confidence buckets</li>
+              <li>Bandcamp embed coverage rate</li>
+              <li>Tags growth curve</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>Artists</h2>
+          <p class="sub">From <code>/artists</code>. (Click a row to jump back to the main releases view filtered by artist.)</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Artist</th>
+                <th style="width:90px;">Releases</th>
+                <th style="width:90px;">Free/NYP</th>
+              </tr>
+            </thead>
+            <tbody id="artists-body">
+              <tr><td colspan="3" style="color:#9ca3af;">Loading artists…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2>Tags</h2>
+          <p class="sub">From <code>/tags</code>. (Click a row to jump back to main releases view with that tag sticky-filtered.)</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Tag</th>
+                <th style="width:90px;">Releases</th>
+                <th style="width:90px;">Free/NYP</th>
+              </tr>
+            </thead>
+            <tbody id="tags-body">
+              <tr><td colspan="3" style="color:#9ca3af;">Loading tags…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function loadSummary() {
+        const ids = {
+          releases: document.getElementById("kpi-releases"),
+          artists: document.getElementById("kpi-artists"),
+          tracks: document.getElementById("kpi-tracks"),
+          freeReleases: document.getElementById("kpi-free-releases"),
+          freeTracks: document.getElementById("kpi-free-tracks"),
+          barFreeReleases: document.getElementById("bar-free-releases"),
+          barFreeTracks: document.getElementById("bar-free-tracks"),
+          pctFreeReleases: document.getElementById("pct-free-releases"),
+          pctFreeTracks: document.getElementById("pct-free-tracks"),
+        };
+
+        try {
+          const res = await fetch("/stats/summary");
+          if (!res.ok) throw new Error("Failed to load /stats/summary");
+          const s = await res.json();
+
+          const totalReleases = Number(s.total_releases || 0);
+          const uniqueArtists = Number(s.unique_artists || 0);
+          const totalTracks = Number(s.total_tracks || 0);
+          const freeReleases = Number(s.total_free_releases || 0);
+          const freeTracks = Number(s.total_free_tracks || 0);
+
+          ids.releases.textContent = totalReleases.toLocaleString();
+          ids.artists.textContent = uniqueArtists.toLocaleString();
+          ids.tracks.textContent = totalTracks.toLocaleString();
+          ids.freeReleases.textContent = freeReleases.toLocaleString();
+          ids.freeTracks.textContent = freeTracks.toLocaleString();
+
+          const pctReleases = totalReleases ? (freeReleases / totalReleases) * 100 : 0;
+          const pctTracks = totalTracks ? (freeTracks / totalTracks) * 100 : 0;
+
+          ids.barFreeReleases.style.width = `${Math.max(0, Math.min(100, pctReleases))}%`;
+          ids.barFreeTracks.style.width = `${Math.max(0, Math.min(100, pctTracks))}%`;
+          ids.pctFreeReleases.textContent = `${pctReleases.toFixed(1)}%`;
+          ids.pctFreeTracks.textContent = `${pctTracks.toFixed(1)}%`;
+        } catch (e) {
+          console.warn("[stats] loadSummary failed:", e);
+        }
+      }
+
+      async function loadArtists() {
+        const body = document.getElementById("artists-body");
+        try {
+          const res = await fetch("/artists");
+          if (!res.ok) throw new Error("Failed to load /artists");
+          const rows = await res.json();
+
+          body.innerHTML = "";
+          if (!Array.isArray(rows) || rows.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" style="color:#9ca3af;">No artists found yet.</td></tr>';
+            return;
+          }
+
+          for (const row of rows) {
+            const tr = document.createElement("tr");
+            tr.className = "clickable";
+            tr.innerHTML = `
+              <td>${row.artist_name || ""}</td>
+              <td>${row.release_count ?? 0}</td>
+              <td>${row.free_release_count ?? 0}</td>
+            `;
+            tr.addEventListener("click", () => {
+              const artist = encodeURIComponent(row.artist_name || "");
+              window.location.href = `/?artist=${artist}`;
+            });
+            body.appendChild(tr);
+          }
+        } catch (e) {
+          console.warn("[stats] loadArtists failed:", e);
+          body.innerHTML = '<tr><td colspan="3" style="color:#9ca3af;">Error loading artists.</td></tr>';
+        }
+      }
+      			
+	  async function loadTags() {
+		const body = document.getElementById("tags-body");
+	  
+		// show a loading row
+		body.innerHTML =
+		  '<tr><td colspan="3" style="color:#9ca3af;">Loading tags…</td></tr>';
+	  
+		try {
+		  const res = await fetch("/tags");
+		  if (!res.ok) throw new Error("Failed to load /tags");
+		  const data = await res.json();
+	  
+		  // /tags returns an object:
+		  // { bandcamp: [...], discogs_genres: [...], discogs_styles: [...] }
+		  const bandcamp = Array.isArray(data?.bandcamp) ? data.bandcamp : [];
+		  const genres = Array.isArray(data?.discogs_genres) ? data.discogs_genres : [];
+		  const styles = Array.isArray(data?.discogs_styles) ? data.discogs_styles : [];
+	  
+		  // merge into one list, but keep a source label for display
+		  const rows = [
+			...bandcamp.map((r) => ({ ...r, _src: "bandcamp" })),
+			...genres.map((r) => ({ ...r, _src: "discogs_genre" })),
+			...styles.map((r) => ({ ...r, _src: "discogs_style" })),
+		  ];
+	  
+		  body.innerHTML = "";
+	  
+		  if (!rows.length) {
+			body.innerHTML =
+			  '<tr><td colspan="3" style="color:#9ca3af;">No tags found yet.</td></tr>';
+			return;
+		  }
+	  
+		  // sort biggest first (feel free to change later)
+		  rows.sort((a, b) => Number(b?.release_count ?? 0) - Number(a?.release_count ?? 0));
+	  
+		  // keep the page snappy
+		  const MAX_ROWS = 300;
+		  const trimmed = rows.slice(0, MAX_ROWS);
+	  
+		  for (const row of trimmed) {
+			const name = String(row?.name ?? "");
+			const releaseCount = Number(row?.release_count ?? 0);
+			const freeCount = Number(row?.free_release_count ?? 0);
+	  
+			const srcLabel =
+			  row._src === "bandcamp"
+				? "BC"
+				: row._src === "discogs_genre"
+				? "DG"
+				: "DS";
+	  
+			const tr = document.createElement("tr");
+			tr.className = "clickable";
+			tr.innerHTML = `
+			  <td>
+				<span style="display:inline-block; min-width:28px; font-size:11px; color:#9ca3af;">${srcLabel}</span>
+				${name.replace(/</g, "&lt;")}
+			  </td>
+			  <td>${releaseCount}</td>
+			  <td>${freeCount}</td>
+			`;
+	  
+			tr.addEventListener("click", () => {
+			  const tag = encodeURIComponent(name);
+			  window.location.href = `/?tag=${tag}`;
+			});
+	  
+			body.appendChild(tr);
+		  }
+	  
+		  if (rows.length > MAX_ROWS) {
+			const tr = document.createElement("tr");
+			tr.innerHTML = `<td colspan="3" style="color:#9ca3af; font-size:12px;">Showing top ${MAX_ROWS} tags.</td>`;
+			body.appendChild(tr);
+		  }
+		} catch (e) {
+		  console.warn("[stats] loadTags failed:", e);
+		  body.innerHTML =
+			'<tr><td colspan="3" style="color:#9ca3af;">Error loading tags.</td></tr>';
+		}
+	  }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadSummary();
+        loadArtists();
+        loadTags();
+      });
+    </script>
+  </body>
+</html>

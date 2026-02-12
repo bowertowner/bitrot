@@ -8,6 +8,38 @@ import { enqueueDiscogsJob, getDiscogsQueueStats } from "../services/discogsQueu
 const router = express.Router();
 
 /**
+ * Build a Bandcamp embed src from item_type + item_id.
+ * We store it so the frontend doesn't need to format anything.
+ *
+ * Bandcamp official embed patterns:
+ *   https://bandcamp.com/EmbeddedPlayer/album=<ID>/...
+ *   https://bandcamp.com/EmbeddedPlayer/track=<ID>/...
+ */
+function buildBandcampEmbedSrc(itemType, itemId) {
+  if (!itemType || !itemId) return null;
+
+  const t = String(itemType).trim();
+  const id = Number(itemId);
+
+  if (!Number.isFinite(id) || id <= 0) return null;
+
+  // Bandcamp commonly uses item_type "a" (album) and "t" (track)
+  const kind = t === "t" ? "track" : "album";
+
+  // Use a stable, reasonable default player. Frontend can override sizing if needed.
+  return `https://bandcamp.com/EmbeddedPlayer/${kind}=${id}/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/`;
+}
+
+/**
+ * Coerce a possibly-empty value to null.
+ */
+function toNullIfEmpty(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s.length ? s : null;
+}
+
+/**
  * POST /release/lookup
  */
 router.post("/lookup", async (req, res) => {
@@ -22,12 +54,46 @@ router.post("/lookup", async (req, res) => {
     tracks,
     price_label,
     is_free,
+
+    // NEW (optional / backward compatible)
+    bandcamp_item_type,
+    bandcamp_item_id,
+    bandcamp_art_url,
   } = req.body;
 
   if (!artist || !title || !platform || !platform_release_id) {
     return res.status(400).json({
       error: "artist, title, platform, and platform_release_id are required fields",
     });
+  }
+
+  // Normalize incoming Bandcamp fields (only apply when platform=bandcamp)
+  let bcType = null;
+  let bcId = null;
+  let bcEmbedSrc = null;
+  let bcArtUrl = null;
+
+  if (String(platform).toLowerCase() === "bandcamp") {
+    bcType = toNullIfEmpty(bandcamp_item_type);
+
+    const maybeId =
+      bandcamp_item_id === undefined || bandcamp_item_id === null
+        ? null
+        : Number(bandcamp_item_id);
+
+    bcId = Number.isFinite(maybeId) && maybeId > 0 ? maybeId : null;
+
+    // Validate type against your DB CHECK constraint: only 'a' or 't'
+    if (bcType !== null && bcType !== "a" && bcType !== "t") {
+      // Don't fail ingestion; just ignore invalid value
+      console.warn("[/release/lookup] Ignoring invalid bandcamp_item_type:", bcType);
+      bcType = null;
+    }
+
+    bcArtUrl = toNullIfEmpty(bandcamp_art_url);
+
+    // Only generate embed src if we have BOTH
+    bcEmbedSrc = buildBandcampEmbedSrc(bcType, bcId);
   }
 
   try {
@@ -48,6 +114,7 @@ router.post("/lookup", async (req, res) => {
     if (existingSource.rows.length > 0) {
       releaseId = existingSource.rows[0].release_id;
 
+      // Update core fields + NEW bandcamp embed fields (backfill-on-encounter)
       await pool.query(
         `
         UPDATE releases
@@ -56,10 +123,30 @@ router.post("/lookup", async (req, res) => {
           title        = COALESCE($2, title),
           release_date = COALESCE($3, release_date),
           price_label  = COALESCE($4, price_label),
-          is_free      = COALESCE($5, is_free)
-        WHERE id = $6
+          is_free      = COALESCE($5, is_free),
+
+          -- NEW bandcamp embed/art fields
+          bandcamp_item_type = COALESCE($6, bandcamp_item_type),
+          bandcamp_item_id   = COALESCE($7, bandcamp_item_id),
+          bandcamp_embed_src = COALESCE($8, bandcamp_embed_src),
+          bandcamp_art_url   = COALESCE($9, bandcamp_art_url)
+
+        WHERE id = $10
         `,
-        [artist, title, release_date || null, price_label || null, is_free, releaseId]
+        [
+          artist,
+          title,
+          release_date || null,
+          price_label || null,
+          is_free,
+
+          bcType,
+          bcId,
+          bcEmbedSrc,
+          bcArtUrl,
+
+          releaseId,
+        ]
       );
 
       if (url) {
@@ -77,12 +164,36 @@ router.post("/lookup", async (req, res) => {
     } else {
       const insertRelease = await pool.query(
         `
-        INSERT INTO releases (artist_name, title, release_date, price_label, is_free)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO releases (
+          artist_name,
+          title,
+          release_date,
+          price_label,
+          is_free,
+
+          -- NEW bandcamp embed/art fields
+          bandcamp_item_type,
+          bandcamp_item_id,
+          bandcamp_embed_src,
+          bandcamp_art_url
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
         `,
-        [artist, title, release_date || null, price_label || null, is_free]
+        [
+          artist,
+          title,
+          release_date || null,
+          price_label || null,
+          is_free,
+
+          bcType,
+          bcId,
+          bcEmbedSrc,
+          bcArtUrl,
+        ]
       );
+
       releaseId = insertRelease.rows[0].id;
 
       await pool.query(
@@ -150,9 +261,7 @@ router.post("/lookup", async (req, res) => {
 
     // Fire-and-forget Discogs match (queued)
     pool
-      .query(`SELECT id, title, artist_name, release_date FROM releases WHERE id = $1`, [
-        releaseId,
-      ])
+      .query(`SELECT id, title, artist_name, release_date FROM releases WHERE id = $1`, [releaseId])
       .then((r) => r.rows[0])
       .then((releaseRow) => {
         if (!releaseRow) return;

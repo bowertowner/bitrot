@@ -35,9 +35,7 @@ router.post("/match/:releaseId", async (req, res) => {
     String(req.query.force || "").trim().toLowerCase() === "true";
 
   try {
-    const rel = await pool.query(`SELECT * FROM releases WHERE id = $1`, [
-      releaseId,
-    ]);
+    const rel = await pool.query(`SELECT * FROM releases WHERE id = $1`, [releaseId]);
 
     if (rel.rows.length === 0) {
       return res.status(404).json({ error: "Release not found" });
@@ -48,7 +46,6 @@ router.post("/match/:releaseId", async (req, res) => {
     if (!force && latest?.created_at) {
       const ageMs = Date.now() - new Date(latest.created_at).getTime();
       if (ageMs < ONE_HOUR_MS) {
-        // Return the latest DB-backed result and explicitly say we skipped
         return res.json({
           release_id: releaseId,
           status: latest.status,
@@ -75,6 +72,7 @@ router.post("/match/:releaseId", async (req, res) => {
       skipped: false,
       skip_reason: null,
       debug: match.debug || undefined,
+      refreshed: match.refreshed === true ? true : undefined,
     });
   } catch (err) {
     console.error("Error in POST /discogs/match/:releaseId", err);
@@ -84,7 +82,10 @@ router.post("/match/:releaseId", async (req, res) => {
 
 /**
  * GET /discogs/status?ids=<uuid,uuid,...>
- * Returns latest match info + cached rating fields if available.
+ * Returns latest match info + rating fields.
+ *
+ * We prefer persisted releases.discogs_rating_* (new enrichment columns),
+ * but fall back to cached discogs_entities raw_json if needed.
  */
 router.get("/status", async (req, res) => {
   try {
@@ -106,9 +107,18 @@ router.get("/status", async (req, res) => {
         m.discogs_release_id,
         m.discogs_master_id,
         m.created_at,
-        (e.raw_json->'community'->'rating'->>'average')::float AS discogs_rating_average,
-        (e.raw_json->'community'->'rating'->>'count')::int     AS discogs_rating_count
+
+        -- Prefer persisted columns on releases
+        r.discogs_rating_average AS persisted_rating_average,
+        r.discogs_rating_count   AS persisted_rating_count,
+
+        -- Fallback to cached release JSON
+        (e.raw_json->'community'->'rating'->>'average')::float AS cached_rating_average,
+        (e.raw_json->'community'->'rating'->>'count')::int     AS cached_rating_count
+
       FROM release_discogs_matches m
+      LEFT JOIN releases r
+        ON r.id = m.release_id
       LEFT JOIN discogs_entities e
         ON e.discogs_id = m.discogs_release_id
        AND e.entity_type = 'release'
@@ -120,21 +130,27 @@ router.get("/status", async (req, res) => {
 
     const out = {};
     for (const row of result.rows) {
+      const avg =
+        row.persisted_rating_average != null
+          ? row.persisted_rating_average
+          : row.cached_rating_average != null
+          ? row.cached_rating_average
+          : null;
+
+      const count =
+        row.persisted_rating_count != null
+          ? row.persisted_rating_count
+          : row.cached_rating_count != null
+          ? row.cached_rating_count
+          : null;
+
       out[row.release_id] = {
         status: row.status,
         confidence_score: row.confidence_score,
         discogs_release_id: row.discogs_release_id,
         discogs_master_id: row.discogs_master_id,
-        discogs_rating_average:
-          row.discogs_rating_average === null ||
-          row.discogs_rating_average === undefined
-            ? null
-            : row.discogs_rating_average,
-        discogs_rating_count:
-          row.discogs_rating_count === null ||
-          row.discogs_rating_count === undefined
-            ? null
-            : row.discogs_rating_count,
+        discogs_rating_average: avg,
+        discogs_rating_count: count,
       };
     }
 

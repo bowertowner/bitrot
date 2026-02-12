@@ -1,27 +1,44 @@
-// src/routes/stats.js
-// Simple stats summary: total releases, unique artists, total tracks.
-
 import express from "express";
 import pool from "../db/pool.js";
 
 const router = express.Router();
 
+/**
+ * GET /stats/summary
+ * Returns:
+ *  - total_releases
+ *  - unique_artists
+ *  - total_tracks
+ *  - total_free_releases
+ *  - total_free_tracks   (tracks whose parent release is_free = true)
+ */
 router.get("/summary", async (req, res) => {
   try {
-    const [artistResult, trackResult, releaseResult] = await Promise.all([
-      pool.query("SELECT COUNT(DISTINCT artist_name) AS count FROM releases"),
-      pool.query("SELECT COUNT(*) AS count FROM tracks"),
-      pool.query("SELECT COUNT(*) AS count FROM releases"),
+    const [
+      releasesResult,
+      artistsResult,
+      tracksResult,
+      freeReleasesResult,
+      freeTracksResult,
+    ] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS count FROM releases"),
+      pool.query("SELECT COUNT(DISTINCT artist_name)::int AS count FROM releases"),
+      pool.query("SELECT COUNT(*)::int AS count FROM tracks"),
+      pool.query("SELECT COUNT(*)::int AS count FROM releases WHERE is_free = true"),
+      pool.query(`
+        SELECT COUNT(*)::int AS count
+        FROM tracks t
+        JOIN releases r ON r.id = t.release_id
+        WHERE r.is_free = true
+      `),
     ]);
 
-    const uniqueArtists = Number(artistResult.rows[0].count || 0);
-    const totalTracks = Number(trackResult.rows[0].count || 0);
-    const totalReleases = Number(releaseResult.rows[0].count || 0);
-
     res.json({
-      total_releases: totalReleases,
-      unique_artists: uniqueArtists,
-      total_tracks: totalTracks,
+      total_releases: releasesResult.rows[0]?.count ?? 0,
+      unique_artists: artistsResult.rows[0]?.count ?? 0,
+      total_tracks: tracksResult.rows[0]?.count ?? 0,
+      total_free_releases: freeReleasesResult.rows[0]?.count ?? 0,
+      total_free_tracks: freeTracksResult.rows[0]?.count ?? 0,
     });
   } catch (err) {
     console.error("Error in /stats/summary:", err);

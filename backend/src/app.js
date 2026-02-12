@@ -1,8 +1,6 @@
-console.log("APP.JS LOADED");
-
+import dotenv from "dotenv";
 dotenv.config();
 
-import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 
@@ -16,11 +14,7 @@ import discogsRoutes from "./routes/discogs.js";
 const app = express();
 
 app.use(express.json());
-
-// Allow requests from any origin (Chrome/Firefox extensions, Bandcamp pages, etc.)
 app.use(cors());
-
-// Serve the simple frontend from /public
 app.use(express.static("public"));
 
 // Stats
@@ -36,17 +30,14 @@ app.use("/discogs", discogsRoutes);
  */
 app.use("/", spotifyAuthRoutes);
 
-
 /**
  * Release detail endpoint
  * GET /release/:id
- * Returns a single release with tags, tracks, encounter count and source URL.
  */
 app.get("/release/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Release + tags + source
     const releaseResult = await pool.query(
       `
       SELECT
@@ -59,10 +50,35 @@ app.get("/release/:id", async (req, res) => {
         r.created_at,
         rs.url,
         rs.platform,
+
+        -- Discogs enrichment fields (Option #1 columns on releases)
+		r.discogs_release_id,
+		r.discogs_master_id,
+		r.discogs_confidence,
+		r.discogs_rating_average,
+		r.discogs_rating_count,
+		r.discogs_country,
+		r.discogs_labels,
+		r.discogs_cover_image_url,
+		r.discogs_thumb_url,
+		r.discogs_genres,
+		r.discogs_styles,
+		r.discogs_matched_at,
+		r.discogs_last_refreshed_at,
+		r.discogs_refreshed_at,
+		
+		-- Bandcamp embed/art enrichment (captured by extensions)
+		r.bandcamp_item_type,
+		r.bandcamp_item_id,
+		r.bandcamp_embed_src,
+		r.bandcamp_art_url,
+
+        -- Bandcamp tags (existing behavior)
         COALESCE(
           string_agg(DISTINCT t.name, ', ') FILTER (WHERE t.name IS NOT NULL),
           ''
         ) AS tags
+
       FROM releases r
       LEFT JOIN release_sources rs ON r.id = rs.release_id
       LEFT JOIN release_tags rt ON r.id = rt.release_id
@@ -80,7 +96,6 @@ app.get("/release/:id", async (req, res) => {
       return res.status(404).json({ error: "Release not found" });
     }
 
-    // Tracks
     const tracksResult = await pool.query(
       `
       SELECT
@@ -95,7 +110,6 @@ app.get("/release/:id", async (req, res) => {
       [id]
     );
 
-    // Encounter count (for MVP, at most one row per release)
     const encountersResult = await pool.query(
       `
       SELECT COUNT(*)::int AS count
@@ -119,9 +133,8 @@ app.get("/release/:id", async (req, res) => {
 /**
  * Artists list endpoint
  * GET /artists
- * Returns top artists aggregated from releases (using artist_name text).
  */
-app.get("/artists", async (req, res) => {
+app.get("/artists", async (_req, res) => {
   try {
     const result = await pool.query(
       `
@@ -147,11 +160,10 @@ app.get("/artists", async (req, res) => {
 /**
  * Single artist releases endpoint
  * GET /artist?name=Artist+Name
- * Returns all releases for a given artist name (exact match).
  */
 app.get("/artist", async (req, res) => {
   const { name } = req.query;
-  if (!name || !name.trim()) {
+  if (!name || !String(name).trim()) {
     return res.status(400).json({ error: "Missing ?name parameter" });
   }
 
@@ -187,7 +199,7 @@ app.get("/artist", async (req, res) => {
         rs.url
       ORDER BY r.created_at DESC
       `,
-      [name]
+      [String(name)]
     );
 
     res.json(result.rows);
@@ -200,11 +212,17 @@ app.get("/artist", async (req, res) => {
 /**
  * Tags list endpoint
  * GET /tags
- * Returns top tags with release counts and free/NYP counts.
+ *
+ * NEW: returns grouped:
+ *  {
+ *    bandcamp: [{name,release_count,free_release_count}],
+ *    discogs_genres: [...],
+ *    discogs_styles: [...]
+ *  }
  */
-app.get("/tags", async (req, res) => {
+app.get("/tags", async (_req, res) => {
   try {
-    const result = await pool.query(
+    const bandcampQ = pool.query(
       `
       SELECT
         t.name,
@@ -219,7 +237,59 @@ app.get("/tags", async (req, res) => {
       `
     );
 
-    res.json(result.rows);
+    const discogsGenresQ = pool.query(
+      `
+      SELECT
+        g.name,
+        COUNT(*)::int AS release_count,
+        COUNT(*) FILTER (WHERE g.is_free = true)::int AS free_release_count
+      FROM (
+        SELECT
+          r.id,
+          r.is_free,
+          unnest(COALESCE(r.discogs_genres, ARRAY[]::text[])) AS name
+        FROM releases r
+        WHERE r.discogs_genres IS NOT NULL
+      ) g
+      WHERE g.name IS NOT NULL AND g.name <> ''
+      GROUP BY g.name
+      ORDER BY release_count DESC, g.name ASC
+      LIMIT 100
+      `
+    );
+
+    const discogsStylesQ = pool.query(
+      `
+      SELECT
+        s.name,
+        COUNT(*)::int AS release_count,
+        COUNT(*) FILTER (WHERE s.is_free = true)::int AS free_release_count
+      FROM (
+        SELECT
+          r.id,
+          r.is_free,
+          unnest(COALESCE(r.discogs_styles, ARRAY[]::text[])) AS name
+        FROM releases r
+        WHERE r.discogs_styles IS NOT NULL
+      ) s
+      WHERE s.name IS NOT NULL AND s.name <> ''
+      GROUP BY s.name
+      ORDER BY release_count DESC, s.name ASC
+      LIMIT 100
+      `
+    );
+
+    const [bandcamp, discogsGenres, discogsStyles] = await Promise.all([
+      bandcampQ,
+      discogsGenresQ,
+      discogsStylesQ,
+    ]);
+
+    res.json({
+      bandcamp: bandcamp.rows || [],
+      discogs_genres: discogsGenres.rows || [],
+      discogs_styles: discogsStyles.rows || [],
+    });
   } catch (err) {
     console.error("Error in GET /tags:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -234,22 +304,20 @@ app.use("/user_encounter", encounterRoutes);
 
 /**
  * Public read-only releases list
- * Supports filters: artist, free (true/false), tag (single or comma-list, AND semantics), page
- * Supports sorting via sort_by, sort_dir
+ * Supports filters: artist, free, tag (comma list AND semantics), q (global search), page
  */
 app.get("/releases", async (req, res) => {
-  const { artist, page = 1, free, tag, sort_by, sort_dir } = req.query;
+  const { artist, page = 1, free, tag, q, sort_by, sort_dir } = req.query;
   const limit = 20;
   const offset = (Number(page) - 1) * limit;
 
-  // Build WHERE conditions dynamically
   const conditions = [];
   const params = [];
   let idx = 1;
 
-  if (artist && artist.trim() !== "") {
+  if (artist && String(artist).trim() !== "") {
     conditions.push(`r.artist_name ILIKE '%' || $${idx} || '%'`);
-    params.push(artist.trim());
+    params.push(String(artist).trim());
     idx++;
   }
 
@@ -259,38 +327,84 @@ app.get("/releases", async (req, res) => {
     conditions.push(`r.is_free = false`);
   }
 
-  if (tag && tag.trim() !== "") {
-    // Support multiple tags via comma-separated string: tag=house,booty
-    const rawTags = tag
+  // Tag filter: AND semantics across (bandcamp tags OR discogs genres OR discogs styles)
+  if (tag && String(tag).trim() !== "") {
+    const rawTags = String(tag)
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
     if (rawTags.length > 0) {
       const lowered = rawTags.map((t) => t.toLowerCase());
-      // AND semantics: release must have *all* of the selected tags (case-insensitive)
+
       conditions.push(`
         EXISTS (
           SELECT 1
           FROM (
-            SELECT COUNT(DISTINCT lower(t2.name)) AS matched
-            FROM release_tags rt2
-            JOIN tags t2 ON rt2.tag_id = t2.id
-            WHERE rt2.release_id = r.id
-              AND lower(t2.name) = ANY ($${idx})
+            SELECT COUNT(DISTINCT m.tag) AS matched
+            FROM (
+              -- bandcamp tags
+              SELECT lower(t2.name) AS tag
+              FROM release_tags rt2
+              JOIN tags t2 ON rt2.tag_id = t2.id
+              WHERE rt2.release_id = r.id
+
+              UNION
+
+              -- discogs genres
+              SELECT lower(x) AS tag
+              FROM unnest(COALESCE(r.discogs_genres, ARRAY[]::text[])) AS x
+
+              UNION
+
+              -- discogs styles
+              SELECT lower(x) AS tag
+              FROM unnest(COALESCE(r.discogs_styles, ARRAY[]::text[])) AS x
+            ) m
+            WHERE m.tag = ANY ($${idx})
           ) AS x
           WHERE x.matched = cardinality($${idx})
         )
       `);
-      params.push(lowered); // text[] in Postgres
+
+      params.push(lowered); // text[]
       idx++;
     }
+  }
+
+  // Global search: include ALL Discogs enrichment + bandcamp tags + normal fields
+  if (q && String(q).trim() !== "") {
+    const term = String(q).trim();
+
+    conditions.push(`
+      (
+        r.artist_name ILIKE '%' || $${idx} || '%'
+        OR r.title ILIKE '%' || $${idx} || '%'
+        OR COALESCE(r.price_label,'') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(rs.url,'') ILIKE '%' || $${idx} || '%'
+        OR EXISTS (
+          SELECT 1
+          FROM release_tags rt3
+          JOIN tags t3 ON rt3.tag_id = t3.id
+          WHERE rt3.release_id = r.id
+            AND t3.name ILIKE '%' || $${idx} || '%'
+        )
+        OR COALESCE(array_to_string(r.discogs_genres, ' '), '') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(array_to_string(r.discogs_styles, ' '), '') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(array_to_string(r.discogs_labels, ' '), '') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(r.discogs_country,'') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(r.discogs_release_id::text,'') ILIKE '%' || $${idx} || '%'
+        OR COALESCE(r.discogs_master_id::text,'') ILIKE '%' || $${idx} || '%'
+      )
+    `);
+
+    params.push(term);
+    idx++;
   }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  // Sorting
   let orderClause = "ORDER BY r.created_at DESC";
   const dir = sort_dir === "asc" ? "ASC" : "DESC";
   switch (sort_by) {
@@ -316,7 +430,6 @@ app.get("/releases", async (req, res) => {
     // keep default
   }
 
-  // Add pagination params
   params.push(limit);
   params.push(offset);
 
@@ -332,23 +445,40 @@ app.get("/releases", async (req, res) => {
         r.price_label,
         r.is_free,
         rs.url,
+
+        -- Discogs enrichment fields (for scroller + global search)
+        r.discogs_genres,
+        r.discogs_styles,
+        r.discogs_cover_image_url,
+        r.discogs_thumb_url,
+        r.discogs_country,
+        r.discogs_labels,
+        r.discogs_rating_average,
+        r.discogs_rating_count,
+
+        -- Bandcamp art thumbnail (captured by extension)
+        r.bandcamp_art_url,
+
+        -- Bandcamp tags
         COALESCE(
           string_agg(DISTINCT t.name, ', ') FILTER (WHERE t.name IS NOT NULL),
           ''
         ) AS tags,
+
         COALESCE(uv.unique_visits, 0) AS unique_visits
+
       FROM releases r
       LEFT JOIN release_sources rs ON r.id = rs.release_id
       LEFT JOIN release_tags rt ON r.id = rt.release_id
       LEFT JOIN tags t ON rt.tag_id = t.id
       LEFT JOIN (
-        SELECT
-          release_id,
-          COUNT(*) AS unique_visits
+        SELECT release_id, COUNT(*) AS unique_visits
         FROM user_encounters
         GROUP BY release_id
       ) uv ON uv.release_id = r.id
+
       ${whereClause}
+
       GROUP BY
         r.id,
         r.title,
@@ -359,6 +489,7 @@ app.get("/releases", async (req, res) => {
         r.is_free,
         rs.url,
         uv.unique_visits
+
       ${orderClause}
       LIMIT $${idx} OFFSET $${idx + 1}
       `,
@@ -367,29 +498,7 @@ app.get("/releases", async (req, res) => {
 
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-app.get("/stats", async (req, res) => {
-  try {
-    const [releasesResult, artistsResult, freeResult, encountersResult] =
-      await Promise.all([
-        pool.query("SELECT COUNT(*) AS count FROM releases"),
-        pool.query("SELECT COUNT(DISTINCT artist_name) AS count FROM releases"),
-        pool.query("SELECT COUNT(*) AS count FROM releases WHERE is_free = true"),
-        pool.query("SELECT COUNT(*) AS count FROM user_encounters"),
-      ]);
-
-    res.json({
-      total_releases: Number(releasesResult.rows[0].count),
-      total_artists: Number(artistsResult.rows[0].count),
-      total_free_releases: Number(freeResult.rows[0].count),
-      total_encounters: Number(encountersResult.rows[0].count),
-    });
-  } catch (err) {
-    console.error("Error in /stats:", err);
+    console.error("Error in GET /releases:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -397,7 +506,7 @@ app.get("/stats", async (req, res) => {
 /**
  * Health check
  */
-app.get("/health", async (req, res) => {
+app.get("/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", db: "connected" });

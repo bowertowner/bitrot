@@ -59,10 +59,15 @@
 	    background: rgba(148, 163, 184, 0.7);
 	  }
 
-      main {
-        padding: 16px 24px 40px;
-        max-width: 1100px;
-      }
+	  main {
+		padding: 16px 24px 40px;
+	  
+		/* WIDTH KNOB: change this if you want a max width cap */
+		max-width: none;
+	  
+		/* keeps it from sticking left; remove margin if you want full-bleed */
+		margin: 0 auto;
+	  }
 
       section {
         margin-bottom: 24px;
@@ -172,12 +177,29 @@
         font-size: 13px;
       }
 
-      th,
-      td {
-        padding: 6px 8px;
-        border-bottom: 1px solid #1f2933;
-        vertical-align: top;
-      }
+	  th,
+	  td {
+		padding: 6px 8px;
+		border-bottom: 1px solid #1f2933;
+		vertical-align: middle;
+	  }
+	  
+	  /* 100px row requirement */
+	  tbody#releases-body tr {
+		height: 100px;
+	  }
+	  
+	  /* Make the art cell flush so 100x100 art fits perfectly */
+	  td.art-cell {
+		padding: 0 !important;
+		width: 100px;
+	  }
+	  td.art-cell .release-thumb {
+		display: block;
+		width: 100px !important;
+		height: 100px !important;
+		border-radius: 6px;
+	  }
 
       th {
         text-align: left;
@@ -281,31 +303,198 @@
         font-size: 13px;
       }
 
-      .track-table {
-        margin-top: 8px;
-        border-top: 1px solid #1f2933;
-      }
+	  .track-table {
+		margin-top: 8px;
+		border-top: 1px solid #1f2933;
+	  }
+			
+	  /* --- Expanded view layout: media left, meta middle, tracks right --- */
+	  .details-top {
+		display: grid;
+		grid-template-columns: 350px minmax(280px, 1fr) minmax(320px, 1fr);
+		gap: 16px;
+		align-items: start;
+	  
+		/* Lock the whole expanded “top” section to the player height */
+		height: 470px;
+	  }
+	  
+	  .details-media {
+		width: 350px;
+		height: 470px;
+	  }
+	  
+	  .details-meta {
+		min-width: 280px;
+		height: 470px;            /* lock to player height */
+		overflow: auto;           /* if meta runs long, scroll inside */
+		padding-right: 6px;       /* room for scrollbar */
+	  }
+	  
+	  .details-right {
+		min-width: 320px;
+		height: 470px;            /* lock to player height */
+		display: flex;
+		flex-direction: column;
+	  }
+	  
+	  .details-tracks-right {
+		flex: 1 1 auto;
+		overflow: auto;
+		padding-right: 6px;       /* room for scrollbar */
+	  }
+	  
+	  /* Tracklist visuals: transparent rows, compact height, subtle separators */
+	  .tracklist {
+		margin-top: 6px;
+		border-top: 1px solid rgba(255, 255, 255, 0.10);
+	  }
+	  
+	  .track-row {
+		display: flex;
+		gap: 10px;
+		align-items: baseline;
+		justify-content: space-between;
+	  
+		padding: 4px 2px; /* compact */
+		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+		background: transparent;
+	  }
+	  
+	  .track-title {
+		flex: 1 1 auto;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	  }
+	  
+	  .track-dur {
+		flex: 0 0 auto;
+		color: rgba(229, 231, 235, 0.75);
+		font-variant-numeric: tabular-nums;
+	  }
+	  
+	  /* --- Bandcamp player sizing (prevents "banner strip" clipping) --- */
+	  .bc-media-shell {
+		width: 350px;
+		height: 470px;
+		border-radius: 8px;
+		overflow: hidden;
+		border: 1px solid #1f2933;
+		background: #111118;
+	  }
+	  
+	  .bc-media-shell.is-expanded {
+		width: 350px;
+		height: 470px;
+	  }
+	  
+	  .bc-iframe {
+		border: 0;
+		width: 100%;
+		height: 100%;
+		display: block;
+		background: #111118;
+	  }
+	  
+	  .bc-fallback-art {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	  }
+	  
+	  .bc-no-art {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: #6b7280;
+		font-size: 12px;
+	  }
 
       .track-table th,
       .track-table td {
         border-bottom: 1px solid #1f2933;
       }
 
-      /* Inline expanded details inside the releases table */
-      .inline-details-row td {
-        background: #030712;
-        border-top: 1px solid #1f2933;
-        padding: 12px 16px;
-      }
+	  /* Inline expanded details inside the releases table */
+	  .inline-details-row td {
+		/* default, will be overridden by theme vars when available */
+		background: #030712;
+		border-top: 1px solid #1f2933;
+		padding: 12px 16px;
+	  }
+	  
+	  /* --- Themed expanded pane (Spotify-ish, but cooler) --- */
+	  .inline-details.theme-on {
+		position: relative;
+		border-radius: 10px;
+		overflow: hidden;
+	  
+		/* theme variables set by JS */
+		background: var(--pane-bg, #030712);
+		color: var(--pane-fg, #e5e7eb);
+		border: 1px solid rgba(31, 41, 51, 0.9);
+	  }
+	  
+	  .inline-details.theme-on .details-label,
+	  .inline-details.theme-on .inline-details-label {
+		color: var(--pane-muted, rgba(229, 231, 235, 0.72));
+	  }
+	  
+	  .inline-details.theme-on a.release-link {
+		color: var(--pane-link, #93c5fd);
+	  }
+	  
+	  .inline-details.theme-on code {
+		color: var(--pane-fg, #e5e7eb) !important;
+	  }
+	  
+	  /* blurred artwork backdrop fallback (always works) */
+	  .inline-details.theme-on::before {
+		content: "";
+		position: absolute;
+		inset: -30px;
+		background-image: var(--pane-bgimg, none);
+		background-size: cover;
+		background-position: center;
+		filter: blur(26px) saturate(1.35) contrast(1.05);
+		transform: scale(1.08);
+		opacity: 0.55;
+		pointer-events: none;
+	  }
+	  
+	  /* dark overlay for legibility */
+	  .inline-details.theme-on::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			135deg,
+			rgba(0, 0, 0, 0.68) 0%,
+			rgba(0, 0, 0, 0.42) 45%,
+			rgba(0, 0, 0, 0.72) 100%
+		  );
+		pointer-events: none;
+	  }
+	  
+	  /* ensure content sits above overlays */
+	  .inline-details.theme-on > * {
+		position: relative;
+		z-index: 1;
+	  }
 
-      /* Scrollable box for the main releases table */
 	  .releases-scroll {
-		max-height: 70vh;
+		/* HEIGHT KNOB: tweak this value */
+		height: calc(100vh - 220px);
+	  
 		overflow-y: auto;
 		border: 1px solid #25252b;
 		border-radius: 6px;
 	  }
-
 
       .inline-details {
         font-size: 12px;
@@ -414,19 +603,35 @@
 		color: #ffffff
 	  }
 
-
 	  /* Optional "checking" style */
 	  span.discogs-checking {
   		color: #9ca3af;
 	  }
-
-
 
       #active-tags {
         margin-top: 6px;
         font-size: 12px;
         color: #9ca3af;
       }
+      
+	  .header-right {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+	  }
+	  
+	  .stats-link {
+		margin-top: 6px;
+		font-size: 12px;
+		color: #60a5fa;
+		text-decoration: none;
+	  }
+	  
+	  .stats-link:hover {
+		text-decoration: underline;
+	  }
+      
+      
     </style>
   </head>
   <body>
@@ -435,15 +640,23 @@
     	<h1>Bitrot</h1>
     	<span>Community-sourced digital release index</span>
   	  </div>
-  	  <div class="header-right">
-    	<div class="stats-bar">
-      	  <span id="stats-total-releases">0 releases</span>
-      	  <span class="dot"></span>
-      	  <span id="stats-total-artists">0 artists</span>
-      	  <span class="dot"></span>
-      	  <span id="stats-total-free">0 free/NYP</span>
-    	</div>
-  	  </div>
+  	  
+	  <div class="header-right">
+		<div class="stats-bar">
+		  <span id="stats-total-releases">0 releases</span>
+		  <span class="dot"></span>
+		  <span id="stats-total-artists">0 artists</span>
+		  <span class="dot"></span>
+		  <span id="stats-total-tracks">0 tracks</span>
+		  <span class="dot"></span>
+		  <span id="stats-total-free-releases">0 free/NYP releases</span>
+		  <span class="dot"></span>
+		  <span id="stats-total-free-tracks">0 free/NYP tracks</span>
+		</div>
+	  
+		<a class="stats-link" href="/stats/">view more stats →</a>
+	  </div>
+	  
 	</header>
 
     <main>
@@ -575,16 +788,18 @@
           <table>
             <thead>
 			  <tr>
-			    <th style="display:none;">ID</th>
-			    <th class="sortable" data-sort="artist">Artist</th>
-			    <th class="sortable" data-sort="title">Title</th>
-			    <th class="sortable" data-sort="price">Price</th>
-			    <th class="sortable" data-sort="release_date">Release date</th>
-			    <th>Tags</th>
-			    <th class="sortable" data-sort="encounters">Encounters</th>
-			    <th>Source</th>
-			    <th>Discogs</th>
+				<th style="display:none;">ID</th>
+				<th>Art</th>
+				<th class="sortable" data-sort="artist">Artist</th>
+				<th class="sortable" data-sort="title">Title</th>
+				<th class="sortable" data-sort="price">Price</th>
+				<th class="sortable" data-sort="release_date">Release date</th>
+				<th>Tags</th>
+				<th class="sortable" data-sort="encounters">Encounters</th>
+				<th>Source</th>
+				<th>Discogs</th>
 			  </tr>
+
             </thead>
             <tbody id="releases-body">
               <!-- Filled by JS -->
@@ -592,74 +807,7 @@
           </table>
          </div>
         </div>
-
-        <div class="panel">
-          <h3 class="details-heading">Release details</h3>
-          <p class="details-sub">
-            Select a release from the table above or from the overlap table to
-            see details here.
-          </p>
-          <div id="release-details"></div>
-        </div>
-      </section>
-
-      <!-- Artists Section -->
-      <section>
-        <h2>Artists</h2>
-        <p class="section-subtitle">
-          Top artists in Bitrot by number of releases. Click an artist to filter
-          the releases table.
-        </p>
-        <div class="panel">
-          <div class="artists-table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Artist</th>
-                  <th>Releases</th>
-                  <th>Free / NYP</th>
-                </tr>
-              </thead>
-              <tbody id="artists-body">
-                <tr>
-                  <td colspan="3" style="font-size: 12px; color: #9ca3af">
-                    Loading artists...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tags Section -->
-      <section>
-        <h2>Tags</h2>
-        <p class="section-subtitle">
-          Top tags in Bitrot. Click a tag to filter the releases table by that
-          genre/descriptor.
-        </p>
-        <div class="panel">
-          <div class="tags-table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Tag</th>
-                  <th>Releases</th>
-                  <th>Free / NYP</th>
-                </tr>
-              </thead>
-              <tbody id="tags-body">
-                <tr>
-                  <td colspan="3" style="font-size: 12px; color: #9ca3af">
-                    Loading tags...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      
     </main>
 
     <script>
@@ -667,6 +815,91 @@
     
 // ---------- Helpers ----------
 
+	// --- Album artwork theming for expanded pane ---
+	// Hybrid approach:
+	// 1) Always set a blurred background using the art URL (works even if CORS blocks canvas).
+	// 2) Try to sample pixels via canvas for a dominant color + readable text color. If blocked, keep fallback.
+	async function applyArtworkThemeToExpandedPane(containerEl, artUrl) {
+	  try {
+		if (!containerEl) return;
+	
+		// Turn on theming class
+		containerEl.classList.add("theme-on");
+	
+		// Always set the blurred background fallback
+		if (artUrl) {
+		  containerEl.style.setProperty("--pane-bgimg", `url("${String(artUrl).replace(/"/g, '\\"')}")`);
+		} else {
+		  containerEl.style.removeProperty("--pane-bgimg");
+		}
+	
+		if (!artUrl) return;
+	
+		// Attempt canvas sampling (may fail if image host blocks CORS)
+		const img = new Image();
+		img.crossOrigin = "anonymous";
+		img.decoding = "async";
+		img.loading = "eager";
+		img.src = artUrl;
+	
+		await new Promise((resolve, reject) => {
+		  img.onload = () => resolve(true);
+		  img.onerror = () => reject(new Error("artwork image failed to load"));
+		});
+	
+		const canvas = document.createElement("canvas");
+		const ctx = canvas.getContext("2d", { willReadFrequently: true });
+		if (!ctx) return;
+	
+		// Downsample heavily for speed
+		const w = 48;
+		const h = 48;
+		canvas.width = w;
+		canvas.height = h;
+		ctx.drawImage(img, 0, 0, w, h);
+	
+		const { data } = ctx.getImageData(0, 0, w, h);
+	
+		// Compute average color, ignoring near-transparent pixels
+		let r = 0, g = 0, b = 0, n = 0;
+		for (let i = 0; i < data.length; i += 4) {
+		  const a = data[i + 3];
+		  if (a < 16) continue;
+		  r += data[i];
+		  g += data[i + 1];
+		  b += data[i + 2];
+		  n++;
+		}
+		if (!n) return;
+	
+		r = Math.round(r / n);
+		g = Math.round(g / n);
+		b = Math.round(b / n);
+	
+		// Slightly darken to keep the UI legible
+		const darken = 0.72;
+		const bgR = Math.round(r * darken);
+		const bgG = Math.round(g * darken);
+		const bgB = Math.round(b * darken);
+	
+		// Pick readable text color based on luminance
+		const luminance = (0.2126 * bgR + 0.7152 * bgG + 0.0722 * bgB) / 255;
+		const fg = luminance > 0.55 ? "#0b0b0e" : "#f5f5f5";
+	
+		// Muted label color derived from fg
+		const muted = luminance > 0.55 ? "rgba(11,11,14,0.72)" : "rgba(245,245,245,0.72)";
+		const link = luminance > 0.55 ? "#1d4ed8" : "#93c5fd";
+	
+		containerEl.style.setProperty("--pane-bg", `rgb(${bgR}, ${bgG}, ${bgB})`);
+		containerEl.style.setProperty("--pane-fg", fg);
+		containerEl.style.setProperty("--pane-muted", muted);
+		containerEl.style.setProperty("--pane-link", link);
+	  } catch (_e) {
+		// If canvas sampling fails (tainted canvas, etc.), the blurred bg fallback still works.
+		// Do nothing.
+	  }
+	}
+	
 		const DISCOGS_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 		const DEV_DISCOGS_REFRESH = true; // dev-only refresh button in expanded pane
 
@@ -702,7 +935,7 @@
 	
 	  // Not found / rejected should stick
 	  if (info.status === "not_found" || info.status === "rejected") {
-		td.innerHTML = `<span class="discogs-not-found" style="color:#ffffff;" title="Not Found On Discogs">🤨</span>`;
+		td.innerHTML = `<span class="discogs-not-found" style="color:#ffffff;" title="Not Found On Discogs">🙈</span>`;
 		return;
 	  }
 	
@@ -1096,157 +1329,297 @@
         }
       }
 
-	  async function toggleInlineDetails(rowEl, releaseId) {
-		if (!rowEl || !releaseId) return false;
+	  let __openInlineDetailsRow = null;
+	  let __openInlineForReleaseId = null;
 	  
-		// If the next row is already an inline details row, remove it (collapse)
-		const next = rowEl.nextElementSibling;
-		if (next && next.classList.contains("inline-details-row")) {
-		  next.remove();
+	  async function toggleInlineDetails(rowEl, releaseId, opts = {}) {
+		const { fromThumb = false } = opts;
+	  
+		// If another release is open, close it first (only one expanded at a time)
+		if (
+		  __openInlineDetailsRow &&
+		  __openInlineForReleaseId &&
+		  __openInlineForReleaseId !== releaseId
+		) {
+		  try {
+			__openInlineDetailsRow.remove();
+		  } catch {}
+		  __openInlineDetailsRow = null;
+		  __openInlineForReleaseId = null;
+		}
+	  
+		// If this release is already open, collapse it
+		const existingRow = rowEl.nextElementSibling;
+		if (existingRow && existingRow.classList.contains("inline-details-row")) {
+		  existingRow.remove();
+		  __openInlineDetailsRow = null;
+		  __openInlineForReleaseId = null;
 		  return false;
 		}
 	  
-		// Create a placeholder row right under the clicked row
-		const detailsTr = document.createElement("tr");
-		detailsTr.className = "inline-details-row";
+		// Create placeholder row
+		const detailsRow = document.createElement("tr");
+		detailsRow.className = "inline-details-row";
 	  
-		const td = document.createElement("td");
-		td.colSpan = rowEl.children.length || 9;
-		td.innerHTML =
-		  '<div class="inline-details"><div class="details-sub">Loading release details...</div></div>';
-		detailsTr.appendChild(td);
+		const detailsTd = document.createElement("td");
+		detailsTd.colSpan = rowEl.children.length;
+		detailsTd.innerHTML = `<div class="inline-details">Loading release details...</div>`;
 	  
-		rowEl.insertAdjacentElement("afterend", detailsTr);
+		detailsRow.appendChild(detailsTd);
+		rowEl.insertAdjacentElement("afterend", detailsRow);
 	  
+		__openInlineDetailsRow = detailsRow;
+		__openInlineForReleaseId = releaseId;
+	  
+		// Fetch release details
 		try {
 		  const res = await fetch("/release/" + encodeURIComponent(releaseId));
-		  if (!res.ok) {
-			td.innerHTML =
-			  '<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
-			return true; // still "expanded"
-		  }
-	  
+		  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		  const r = await res.json();
 	  
-		  const tags = (r.tags || "")
-			.split(",")
-			.map((t) => t.trim())
-			.filter((t) => t.length > 0);
+		  // Build the media slot:
+		  // - If bandcamp_embed_src exists: render the iframe at full size (350×470)
+		  // - Otherwise: show a larger cover image placeholder
+		  const bandcampEmbedSrc =
+			r.bandcamp_embed_src && String(r.bandcamp_embed_src).trim()
+			  ? String(r.bandcamp_embed_src).trim()
+			  : "";
 	  
-		  const dateStr = r.release_date
-			? new Date(r.release_date).toISOString().slice(0, 10)
+		  const mediaArtUrl =
+			r.bandcamp_art_url ||
+			r.discogs_cover_image_url ||
+			r.discogs_thumb_url ||
+			"";
+	  
+		  // Bandcamp autoplay: Bandcamp iframes generally do NOT reliably support programmatic autoplay.
+		  // We still pass an autoplay hint for “best effort”; most browsers/iframes will ignore it.
+		  const autoplayHint = fromThumb ? "autoplay=1" : "";
+	  
+		  const iframeSrc = bandcampEmbedSrc
+			? (() => {
+				// If the embed src already has query-ish segments, we just append a harmless suffix.
+				// (Bandcamp EmbeddedPlayer URLs aren’t normal querystrings, but adding this won’t break them.)
+				if (!autoplayHint) return bandcampEmbedSrc;
+				return bandcampEmbedSrc.includes("autoplay=")
+				  ? bandcampEmbedSrc
+				  : bandcampEmbedSrc.replace(/\/$/, "") + `/${autoplayHint}/`;
+			  })()
 			: "";
 	  
-		  const seenStr =
-			typeof r.encounter_count === "number"
-			  ? r.encounter_count + " recorded encounter(s)"
-			  : "Encounters: n/a";
+		  const mediaHtml = bandcampEmbedSrc
+			? `
+			  <div class="bc-media-shell is-expanded">
+				<iframe
+				  class="bc-iframe"
+				  src="${iframeSrc.replace(/"/g, "&quot;")}"
+				  title="Bandcamp player"
+				  seamless
+				  loading="lazy"
+				  allow="autoplay; encrypted-media"
+				></iframe>
+			  </div>
+			`
+			: `
+			  <div class="bc-media-shell is-expanded">
+				${
+				  mediaArtUrl
+					? `<img class="bc-fallback-art" src="${mediaArtUrl}" alt="Cover art" />`
+					: `<div class="bc-no-art">No art</div>`
+				}
+			  </div>
+			`;
 	  
-		  let tracksHtml = "";
+		  // Discogs bits (for right-side metadata area)
+		  const labels = Array.isArray(r.discogs_labels)
+			? r.discogs_labels.map((x) => String(x || "").trim()).filter(Boolean)
+			: [];
+		  const labelStr = labels.length > 0 ? labels.join(", ") : "";
+		  const countryStr = r.discogs_country ? String(r.discogs_country) : "";
 	  
-		  if (Array.isArray(r.tracks) && r.tracks.length > 0) {
-			tracksHtml = `
-			  <div class="inline-details-tracks">
-				<div class="inline-details-label">Tracks</div>
-				<table>
-				  <thead>
-					<tr>
-					  <th style="width: 60%;">Track</th>
-					  <th style="width: 20%;">Duration</th>
-					</tr>
-				  </thead>
-				  <tbody>
-					${r.tracks
+		  const discogsAvg =
+			r.discogs_rating_average == null ? null : Number(r.discogs_rating_average);
+		  const discogsCount =
+			r.discogs_rating_count == null ? null : Number(r.discogs_rating_count);
+	  
+		  const discogsRatingLine =
+			discogsAvg == null
+			  ? "<span style='color:#6b7280;'>No Discogs rating yet</span>"
+			  : `<span>${discogsAvg.toFixed(2)} / 5</span>`;
+	  
+		  const discogsCountLine =
+			discogsCount == null
+			  ? ""
+			  : `<div style="font-size:11px; color:#9ca3af; margin-top:2px;">${discogsCount} rating${
+				  discogsCount === 1 ? "" : "s"
+				}</div>`;
+	  
+		  const discogsMetaLine =
+			labelStr || countryStr
+			  ? `<div style="font-size:12px; color:#d1d5db; margin-top:6px;">
+				   ${
+					 countryStr
+					   ? `<div><span style="color:#9ca3af;">Country:</span> ${countryStr}</div>`
+					   : ""
+				   }
+				   ${
+					 labelStr
+					   ? `<div><span style="color:#9ca3af;">Label:</span> ${labelStr}</div>`
+					   : ""
+				   }
+				 </div>`
+			  : `<div style="font-size:12px; color:#6b7280; margin-top:6px;">No Discogs label/country recorded</div>`;
+	  
+		  const discogsSummaryHtml = `
+			<div style="margin-top:4px;">
+			  <div style="font-size:12px; color:#9ca3af;">Discogs</div>
+			  <div style="font-size:13px; color:#e5e7eb; margin-top:2px;">
+				${discogsRatingLine}
+				${discogsCountLine}
+			  </div>
+			  ${discogsMetaLine}
+			</div>
+		  `;
+	  
+				// Tracks (right column, compact list)
+		  const tracks = Array.isArray(r.tracks) ? r.tracks : [];
+		  const tracksHtml =
+			tracks.length > 0
+			  ? `
+				<div class="details-tracks-right">
+				  <div class="details-label">Tracks</div>
+				  <div class="tracklist">
+					${tracks
 					  .map((t) => {
-						const name = String(t.title || "").replace(/</g, "&lt;");
-						const d = formatDuration(t.duration);
+						const title = String(t.title || "").replace(/</g, "&lt;");
+						const dur = Number(t.duration || 0);
+						const mm = dur ? Math.floor(dur / 60) : 0;
+						const ss = dur ? String(dur % 60).padStart(2, "0") : "00";
+						const durStr = dur ? `${mm}:${ss}` : "";
 						return `
-						  <tr>
-							<td>${name}</td>
-							<td>${d || ""}</td>
-						  </tr>
+						  <div class="track-row">
+							<div class="track-title">${title}</div>
+							<div class="track-dur">${durStr}</div>
+						  </div>
 						`;
 					  })
 					  .join("")}
-				  </tbody>
-				</table>
-			  </div>
-			`;
-		  }
+				  </div>
+				</div>
+			  `
+			  : `<div class="details-tracks-right"><div class="details-label">Tracks</div><div style="color:#6b7280; font-size:12px; margin-top:6px;">No tracks recorded</div></div>`;
+
+		  // Keep your existing tags grouping (already working in your file)
+		  // We reuse your already-built tag sections if present on the response:
+		  const safeBandcampTags = (r.tags || "").toString();
+		  const tagsBlockHtml = safeBandcampTags
+			? `<div style="margin-top:10px;">
+				 <div class="details-label">Tags</div>
+				 <div class="details-value">${safeBandcampTags}</div>
+			   </div>`
+			: "";
 	  
-		  const tagsHtml =
-			tags.length > 0
-			  ? tags
-				  .map((tRaw) => {
-					const label = tRaw.replace(/</g, "&lt;");
-					const attr = tRaw.replace(/"/g, "&quot;");
-					return `
-					  <span class="tag-chip tag-click" data-tag="${attr}">
-						${label}
-					  </span>
-					`;
-				  })
-				  .join("")
-			  : "<span style='color:#6b7280;'>No tags</span>";
-	  
-		  td.innerHTML = `
+		  // Render: media left, metadata middle, tracks right (all locked to player height)
+		  detailsTd.innerHTML = `
 			<div class="inline-details">
-			  <div class="details-grid">
-				<div>
-				  <div class="details-label">Release ID</div>
-				  <div class="details-value" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-					<code style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; color:#e5e7eb;">
-					  ${r.id || releaseId}
-					</code>
-					<button class="copy-id-btn" data-id="${r.id || releaseId}">Copy ID</button>
-					${
-					  DEV_DISCOGS_REFRESH
-					  	? `<button class="copy-id-btn discogs-refresh-btn" data-release-id="${r.id || releaseId}" title="Force refresh Discogs match" style="font-size:10px;">
-       						  ⟳
-       					   </button>`
-   					    : ""
-					}
+			  <div class="details-top">
+				<div class="details-media">
+				  ${mediaHtml}
+				  ${
+					r.url
+					  ? `<div style="margin-top:10px; font-size:12px;">
+						   <a class="release-link" href="${r.url}" target="_blank" rel="noreferrer">Open on Bandcamp</a>
+						 </div>`
+					  : ""
+				  }
+				</div>
+		  
+				<div class="details-meta">
+				  <div class="details-grid">
+					<div>
+					  <div class="details-label">Release ID</div>
+					  <div class="details-value" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+						<code style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 12px; color:#e5e7eb;">
+						  ${r.id || releaseId}
+						</code>
+						<button class="copy-id-btn" data-id="${r.id || releaseId}">Copy ID</button>
+					  </div>
+					</div>
+		  
+					<div>
+					  <div class="details-label">Artist</div>
+					  <div class="details-value">${String(r.artist_name || "")}</div>
+					</div>
+		  
+					<div>
+					  <div class="details-label">Title</div>
+					  <div class="details-value">${String(r.title || "")}</div>
+					</div>
+		  
+					<div>
+					  <div class="details-label">Release date</div>
+					  <div class="details-value">${r.release_date ? String(r.release_date).slice(0, 10) : ""}</div>
+					</div>
+		  
+					<div>
+					  <div class="details-label">Price</div>
+					  <div class="details-value">${String(r.price_label || "")}</div>
+					</div>
+		  
+					<div>
+					  <div class="details-label">Encounters</div>
+					  <div class="details-value">${Number(r.encounter_count || 0)}</div>
+					</div>
 				  </div>
-				</div>		
-				<div>
-				  <div class="details-label">Release date</div>
-				  <div class="details-value">${dateStr}</div>
+		  
+				  ${discogsSummaryHtml}
+				  ${tagsBlockHtml}
 				</div>
-				<div>
-				  <div class="details-label">Tags</div>
-				  <div class="details-value">${tagsHtml}</div>
-				</div>
-				<div>
-				  <div class="details-label">Encounters</div>
-				  <div class="details-value">${seenStr}</div>
-				</div>
-				<div>
-				  <div class="details-label">Source</div>
-				  <div class="details-value">
-					${
-					  r.url
-						? '<a class="release-link" href="' +
-						  r.url +
-						  '" target="_blank" rel="noreferrer">Open on Bandcamp</a>'
-						: "<span style='color:#6b7280;'>No source URL recorded</span>"
-					}
-				  </div>
+		  
+				<div class="details-right">
+				  ${tracksHtml}
 				</div>
 			  </div>
-			  ${tracksHtml}
 			</div>
 		  `;
 
-		  wireTagClickElements(td);
-		} catch (err) {
-		  console.error("Error loading inline details:", err);
-		  td.innerHTML =
-			'<div class="inline-details"><div class="details-sub">Error loading release details.</div></div>';
-		}
+		// Apply album-art-driven theming to the expanded pane
+		try {
+		  const pane = detailsTd.querySelector(".inline-details");
+		  await applyArtworkThemeToExpandedPane(pane, mediaArtUrl);
+		} catch (_e) {}
+		
+		  // Wire Copy ID + tag clicks inside the expanded content
+		  wireTagClickElements(detailsTd);
 	  
-		return true; // expanded
+		  const copyBtn = detailsTd.querySelector(".copy-id-btn");
+		  if (copyBtn) {
+			copyBtn.addEventListener("click", async (e) => {
+			  e.stopPropagation();
+			  const id = copyBtn.getAttribute("data-id") || "";
+			  try {
+				await navigator.clipboard.writeText(id);
+				copyBtn.textContent = "Copied!";
+				setTimeout(() => (copyBtn.textContent = "Copy ID"), 800);
+			  } catch {
+				// ignore
+			  }
+			});
+		  }
+	  
+		  return true;
+		  
+		} catch (err) {
+		  console.error(err);
+		  const msg =
+			err && err.message ? String(err.message) : String(err || "unknown error");
+		  detailsTd.innerHTML = `<div class="inline-details">Error loading release details: <span style="color:#9ca3af;">${msg.replace(
+			/</g,
+			"&lt;"
+		  )}</span></div>`;
+		  return true; // still expanded, but errored
+		}
+		
 	  }
-
 
   	// Create a placeholder row right under the clicked row
 
@@ -1302,6 +1675,11 @@
           params.set("sort_dir", currentSortDir);
         }
         params.set("page", String(pageToLoad));
+        
+		// Global search must be applied BEFORE fetching
+		if (globalInput && globalInput.value.trim() !== "") {
+		  params.set("q", globalInput.value.trim());
+		}
 
         statusEl.textContent =
           pageToLoad === 1 ? "Loading releases..." : "Loading more releases...";
@@ -1323,23 +1701,6 @@
             );
           }
 
-          // Global search filter
-          if (globalInput && globalInput.value.trim() !== "") {
-            const term = globalInput.value.trim().toLowerCase();
-            rows = rows.filter((row) => {
-              const fields = [
-                row.artist_name,
-                row.title,
-                row.tags,
-                row.price_label,
-                row.url,
-              ];
-              return fields.some(
-                (f) => f && String(f).toLowerCase().includes(term)
-              );
-            });
-          }
-
           if (!Array.isArray(rows) || rows.length === 0) {
             if (pageToLoad === 1) {
               releasesBody.innerHTML =
@@ -1351,42 +1712,79 @@
             for (const row of rows) {
               const tr = document.createElement("tr");
 
-              const tags = (row.tags || "")
-                .split(",")
-                .map((t) => t.trim())
-                .filter((t) => t.length > 0);
-
-              const freeLabel =
-                row.is_free === true
-                  ? "Yes"
-                  : row.is_free === false
-                  ? "No"
-                  : "";
-
-              const dateStr = row.release_date
-                ? new Date(row.release_date).toISOString().slice(0, 10)
-                : "";
-
-              const tagsHtml =
-                tags.length > 0
-                  ? tags
-                      .map((tRaw) => {
-                        const label = tRaw.replace(/</g, "&lt;");
-                        const attr = tRaw.replace(/"/g, "&quot;");
-                        return `
-                          <span class="tag-chip tag-click" data-tag="${attr}">
-                            ${label}
-                          </span>
-                        `;
-                      })
-                      .join("")
-                  : "";
+			  const bandcampTags = (row.tags || "")
+				.split(",")
+				.map((t) => t.trim())
+				.filter((t) => t.length > 0);
+			  
+			  const discogsGenres = Array.isArray(row.discogs_genres)
+				? row.discogs_genres.map((x) => String(x || "").trim()).filter(Boolean)
+				: [];
+			  
+			  const discogsStyles = Array.isArray(row.discogs_styles)
+				? row.discogs_styles.map((x) => String(x || "").trim()).filter(Boolean)
+				: [];
+			  
+			  const freeLabel =
+				row.is_free === true
+				  ? "Yes"
+				  : row.is_free === false
+				  ? "No"
+				  : "";
+			  
+			  const dateStr = row.release_date
+				? new Date(row.release_date).toISOString().slice(0, 10)
+				: "";
+			  
+			  function renderChips(list) {
+				return list
+				  .map((tRaw) => {
+					const label = tRaw.replace(/</g, "&lt;");
+					const attr = tRaw.replace(/"/g, "&quot;");
+					return `
+					  <span class="tag-chip tag-click" data-tag="${attr}">
+						${label}
+					  </span>
+					`;
+				  })
+				  .join("");
+			  }
+			  
+			  // Bandcamp first, then Discogs genres, then Discogs styles
+			  const parts = [];
+			  if (bandcampTags.length) parts.push(renderChips(bandcampTags));
+			  if (discogsGenres.length) parts.push(renderChips(discogsGenres));
+			  if (discogsStyles.length) parts.push(renderChips(discogsStyles));
+			  
+			  // Use a subtle separator between tag groups
+			  const tagsHtml = parts.join(
+				`<span style="color:#374151; margin:0 6px;">|</span>`
+			  );
 
               const encounters = Number(row.unique_visits ?? 0);
+
+			  const artUrl =
+				row.bandcamp_art_url || row.discogs_thumb_url || row.discogs_cover_image_url || "";
+			  
+			  const artHtml = artUrl
+				? `<img
+					 class="release-thumb"
+					 src="${artUrl}"
+					 alt="art"
+					 loading="lazy"
+					 style="width:100px;height:100px;object-fit:cover;border-radius:6px;border:1px solid #1f2933; cursor:pointer;"
+				   />`
+				: `<div class="release-thumb"
+					 style="width:100px;height:100px;border-radius:6px;border:1px solid #1f2933;
+					 display:flex;align-items:center;justify-content:center;color:#6b7280;font-size:11px; cursor:pointer;">—</div>`;
 
 			  tr.innerHTML = `
 				<td style="display:none;">
 				  ${row.id || ""}
+				</td>
+			  
+				<td class="art-cell">
+				  ${artHtml}
 				</td>
 			  
 				<td>${row.artist_name || ""}</td>
@@ -1408,19 +1806,27 @@
 				  <span class="discogs-none">-</span>
 				</td>
 			  `;
+
+			  tr.addEventListener("click", async (ev) => {
+				// Don’t toggle expand when clicking links, tag chips, or buttons
+				if (
+				  ev.target.closest("a") ||
+				  ev.target.closest(".tag-click") ||
+				  ev.target.closest(".copy-id-btn")
+				) {
+				  return;
+				}
 			  
-			  tr.style.cursor = "pointer";
-			  tr.addEventListener("click", async () => {
+				const fromThumb = !!ev.target.closest(".release-thumb");
+			  
 				// Expand/collapse inline
-				const didExpand = await toggleInlineDetails(tr, row.id);
+				const didExpand = await toggleInlineDetails(tr, row.id, { fromThumb });
 			  
 				// Only run Discogs matching on EXPAND (never on collapse)
 				if (didExpand) {
 				  triggerDiscogsMatchForReleaseId(row.id);
 				}
 			  });
-
-
 
               releasesBody.appendChild(tr);
               wireTagClickElements(tr);
@@ -1715,6 +2121,28 @@
         }
       }
 
+		async function loadStats() {
+		  try {
+			const res = await fetch("/stats/summary");
+			if (!res.ok) throw new Error("Failed to load /stats/summary");
+			const stats = await res.json();
+		
+			const elReleases = document.getElementById("stats-total-releases");
+			const elArtists = document.getElementById("stats-total-artists");
+			const elTracks = document.getElementById("stats-total-tracks");
+			const elFreeReleases = document.getElementById("stats-total-free-releases");
+			const elFreeTracks = document.getElementById("stats-total-free-tracks");
+		
+			if (elReleases) elReleases.textContent = `${stats.total_releases ?? 0} releases`;
+			if (elArtists) elArtists.textContent = `${stats.unique_artists ?? 0} artists`;
+			if (elTracks) elTracks.textContent = `${stats.total_tracks ?? 0} tracks`;
+			if (elFreeReleases) elFreeReleases.textContent = `${stats.total_free_releases ?? 0} free/NYP releases`;
+			if (elFreeTracks) elFreeTracks.textContent = `${stats.total_free_tracks ?? 0} free/NYP tracks`;
+		  } catch (err) {
+			console.warn("[Bitrot] Failed to load stats:", err);
+		  }
+		}
+
       // Initial loads
       renderActiveTags();
       loadStats();
@@ -1722,37 +2150,9 @@
       loadArtists();
       loadTags();
       
-	  async function loadStats() {
-  		try {
-   		const res = await fetch("/stats");
-    	if (!res.ok) return;
-    	const stats = await res.json();
-
-    	const elTotalReleases = document.getElementById("stats-total-releases");
-    	const elTotalArtists = document.getElementById("stats-total-artists");
-    	const elTotalFree = document.getElementById("stats-total-free");
-
-    	if (elTotalReleases && typeof stats.total_releases === "number") {
-      		elTotalReleases.textContent = `${stats.total_releases} releases`;
-    	}
-    	if (elTotalArtists && typeof stats.total_artists === "number") {
-      		elTotalArtists.textContent = `${stats.total_artists} artists`;
-    	}
-    	if (elTotalFree && typeof stats.total_free_releases === "number") {
-      		elTotalFree.textContent = `${stats.total_free_releases} NYP releases`;
-    	}
-  	  	} catch (err) {
-    	  console.warn("[Bitrot] Failed to load stats:", err);
-	  	}		
-	  }
-
-	// Safe to add even if you have other DOMContentLoaded listeners:
-	document.addEventListener("DOMContentLoaded", () => {
-	  loadStats();
-	});
-	
 	// Global click handler for "Copy ID" buttons
 	document.addEventListener("click", async (event) => {
+	
 	  // Discogs refresh button (dev-only)
 	  const refreshBtn = event.target.closest(".discogs-refresh-btn");
 	  if (refreshBtn) {
