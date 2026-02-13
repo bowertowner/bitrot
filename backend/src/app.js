@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import pool from "./db/pool.js";
 import releaseRoutes from "./routes/release.js";
@@ -11,10 +12,20 @@ import spotifyAuthRoutes from "./routes/spotifyAuth.js";
 import statsRoutes from "./routes/stats.js";
 import discogsRoutes from "./routes/discogs.js";
 
+import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/user.js";
+import { loadAccountFromSession } from "./middleware/authSession.js";
+
 const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.use(cookieParser());
+
+// Attach req.account if logged in (safe for all routes)
+app.use(loadAccountFromSession);
+
+// Static files (frontend)
 app.use(express.static("public"));
 
 // Stats
@@ -24,9 +35,15 @@ app.use("/stats", statsRoutes);
 app.use("/discogs", discogsRoutes);
 
 /**
- * Spotify auth routes mounted at root:
- *  - GET /login
- *  - GET /callback
+ * Auth + User routes (new)
+ */
+app.use("/auth", authRoutes);
+app.use("/user", userRoutes);
+
+/**
+ * Spotify auth routes mounted at root (legacy).
+ * We will remove/hide Spotify from the frontend for public MVP,
+ * but backend routes can remain for now.
  */
 app.use("/", spotifyAuthRoutes);
 
@@ -52,26 +69,26 @@ app.get("/release/:id", async (req, res) => {
         rs.platform,
 
         -- Discogs enrichment fields (Option #1 columns on releases)
-		r.discogs_release_id,
-		r.discogs_master_id,
-		r.discogs_confidence,
-		r.discogs_rating_average,
-		r.discogs_rating_count,
-		r.discogs_country,
-		r.discogs_labels,
-		r.discogs_cover_image_url,
-		r.discogs_thumb_url,
-		r.discogs_genres,
-		r.discogs_styles,
-		r.discogs_matched_at,
-		r.discogs_last_refreshed_at,
-		r.discogs_refreshed_at,
-		
-		-- Bandcamp embed/art enrichment (captured by extensions)
-		r.bandcamp_item_type,
-		r.bandcamp_item_id,
-		r.bandcamp_embed_src,
-		r.bandcamp_art_url,
+        r.discogs_release_id,
+        r.discogs_master_id,
+        r.discogs_confidence,
+        r.discogs_rating_average,
+        r.discogs_rating_count,
+        r.discogs_country,
+        r.discogs_labels,
+        r.discogs_cover_image_url,
+        r.discogs_thumb_url,
+        r.discogs_genres,
+        r.discogs_styles,
+        r.discogs_matched_at,
+        r.discogs_last_refreshed_at,
+        r.discogs_refreshed_at,
+
+        -- Bandcamp embed/art enrichment (captured by extensions)
+        r.bandcamp_item_type,
+        r.bandcamp_item_id,
+        r.bandcamp_embed_src,
+        r.bandcamp_art_url,
 
         -- Bandcamp tags (existing behavior)
         COALESCE(
@@ -213,7 +230,7 @@ app.get("/artist", async (req, res) => {
  * Tags list endpoint
  * GET /tags
  *
- * NEW: returns grouped:
+ * Returns grouped:
  *  {
  *    bandcamp: [{name,release_count,free_release_count}],
  *    discogs_genres: [...],
@@ -304,7 +321,6 @@ app.use("/user_encounter", encounterRoutes);
 
 /**
  * Public read-only releases list
- * Supports filters: artist, free, tag (comma list AND semantics), q (global search), page
  */
 app.get("/releases", async (req, res) => {
   const { artist, page = 1, free, tag, q, sort_by, sort_dir } = req.query;
@@ -372,7 +388,7 @@ app.get("/releases", async (req, res) => {
     }
   }
 
-  // Global search: include ALL Discogs enrichment + bandcamp tags + normal fields
+  // Global search: include Discogs enrichment + bandcamp tags + normal fields
   if (q && String(q).trim() !== "") {
     const term = String(q).trim();
 
