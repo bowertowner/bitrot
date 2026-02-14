@@ -631,8 +631,185 @@
 		text-decoration: underline;
 	  }
       
+      /* --- MVP auth bar --- */
+      .auth-bar {
+        margin-top: 10px;
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+      }
+
+      .auth-logged-out,
+      .auth-logged-in {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: 720px;
+      }
+
+      .auth-logged-out input {
+        width: 150px;
+        font-size: 12px;
+        padding: 4px 8px;
+      }
+
+      .auth-msg {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-left: 6px;
+      }
+
+      .auth-user-link {
+        color: #93c5fd;
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .auth-user-link:hover {
+        text-decoration: underline;
+      }
+
+      /* --- Stickers / voting UI in expanded pane --- */
+      .stickers-panel {
+        margin-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.10);
+        padding-top: 10px;
+      }
+
+      .stickers-add-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+
+      .stickers-add-row input {
+        width: 240px;
+        font-size: 12px;
+      }
+
+      .typeahead {
+        position: relative;
+      }
+
+      .typeahead-list {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #020617;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        z-index: 9999;
+        max-height: 220px;
+        overflow: auto;
+        margin-top: 4px;
+        display: none;
+      }
+
+      .typeahead-item {
+        padding: 6px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(55, 65, 81, 0.35);
+      }
+
+      .typeahead-item:hover {
+        background: rgba(148, 163, 184, 0.10);
+      }
+
+      .attach-row {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .attach-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(2, 6, 23, 0.65);
+        font-size: 11px;
+      }
+
+      .attach-source {
+        color: rgba(229, 231, 235, 0.65);
+        font-size: 10px;
+      }
+
+      .src-icon {
+        width: 11px;
+        height: 11px;
+        display: inline-block;
+        vertical-align: -2px;
+        margin-right: 4px;
+      }
+
+      .vote-btn {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: transparent;
+        color: rgba(229, 231, 235, 0.85);
+        border-radius: 999px;
+        padding: 1px 6px;
+        font-size: 11px;
+        cursor: pointer;
+        line-height: 1;
+      }
+
+      /* Active state (user has voted) */
+      .vote-btn.active {
+        border-color: rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.10);
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      .vote-btn.vote-up.active {
+        border-color: rgba(34, 197, 94, 0.55);
+        background: rgba(34, 197, 94, 0.16);
+        color: rgba(34, 197, 94, 0.95);
+      }
+
+      .vote-btn.vote-down.active {
+        border-color: rgba(239, 68, 68, 0.55);
+        background: rgba(239, 68, 68, 0.16);
+        color: rgba(239, 68, 68, 0.95);
+      }
+
+      .vote-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+
+      .vote-count {
+        font-variant-numeric: tabular-nums;
+        color: rgba(229, 231, 235, 0.85);
+      }
+
+      .remove-btn {
+        border: 1px solid rgba(251, 113, 133, 0.35);
+        background: transparent;
+        color: rgba(251, 113, 133, 0.95);
+        border-radius: 999px;
+        padding: 1px 6px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .remove-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
       
     </style>
+    
+    
   </head>
   <body>
     <header>
@@ -640,7 +817,7 @@
     	<h1>Bitrot</h1>
     	<span>Community-sourced digital release index</span>
   	  </div>
-  	  
+  	   
 	  <div class="header-right">
 		<div class="stats-bar">
 		  <span id="stats-total-releases">0 releases</span>
@@ -653,15 +830,33 @@
 		  <span class="dot"></span>
 		  <span id="stats-total-free-tracks">0 free/NYP tracks</span>
 		</div>
+
+        <!-- MVP account UI -->
+        <div class="auth-bar" id="auth-bar">
+          <div class="auth-logged-out" id="auth-logged-out">
+            <input id="auth-username" type="text" placeholder="username" />
+            <input id="auth-email" type="text" placeholder="email (signup only)" />
+            <input id="auth-password" type="password" placeholder="password" />
+            <button class="btn btn-secondary" id="auth-login-btn">Log in</button>
+            <button class="btn btn-secondary" id="auth-signup-btn">Sign up</button>
+            <span class="auth-msg" id="auth-msg"></span>
+          </div>
+
+          <div class="auth-logged-in" id="auth-logged-in" style="display:none;">
+            <span class="auth-who">logged in as <a id="auth-user-link" class="auth-user-link" href="#"></a></span>
+            <button class="btn btn-secondary" id="auth-logout-btn">Log out</button>
+            <span class="auth-msg" id="auth-msg-in"></span>
+          </div>
+        </div>
 	  
 		<a class="stats-link" href="/stats/">view more stats →</a>
 	  </div>
-	  
+
 	</header>
 
     <main>
       <!-- Spotify Section -->
-      <section>
+      <section style="display: none;">
         <h2>Spotify Library Overlap</h2>
         <p class="section-subtitle">
           Connect your Spotify account and see how many of your saved releases already exist in Bitrot.
@@ -1096,6 +1291,137 @@
       const tagInput = document.getElementById("filter-tag");
       const activeTagsEl = document.getElementById("active-tags");
 
+      // ---------- Auth state (MVP) ----------
+      let __bitrotMe = null;
+
+      const authLoggedOutEl = document.getElementById("auth-logged-out");
+      const authLoggedInEl = document.getElementById("auth-logged-in");
+      const authMsgEl = document.getElementById("auth-msg");
+      const authMsgInEl = document.getElementById("auth-msg-in");
+
+      const authUsernameEl = document.getElementById("auth-username");
+      const authEmailEl = document.getElementById("auth-email");
+      const authPasswordEl = document.getElementById("auth-password");
+
+      const authLoginBtn = document.getElementById("auth-login-btn");
+      const authSignupBtn = document.getElementById("auth-signup-btn");
+      const authLogoutBtn = document.getElementById("auth-logout-btn");
+      const authUserLinkEl = document.getElementById("auth-user-link");
+
+      function setAuthMsg(msg, loggedIn = false) {
+        const el = loggedIn ? authMsgInEl : authMsgEl;
+        if (!el) return;
+        el.textContent = msg || "";
+      }
+
+      async function fetchMe() {
+        try {
+          const res = await fetch("/auth/me", { credentials: "same-origin" });
+          if (!res.ok) return null;
+          return await res.json();
+        } catch {
+          return null;
+        }
+      }
+
+      function renderAuthUI() {
+        const me = __bitrotMe;
+
+        if (!authLoggedOutEl || !authLoggedInEl) return;
+
+        if (!me) {
+          authLoggedOutEl.style.display = "flex";
+          authLoggedInEl.style.display = "none";
+          if (authUserLinkEl) authUserLinkEl.textContent = "";
+          return;
+        }
+
+        authLoggedOutEl.style.display = "none";
+        authLoggedInEl.style.display = "flex";
+        if (authUserLinkEl) {
+          authUserLinkEl.textContent = me.username || "";
+          authUserLinkEl.href = "/user/" + encodeURIComponent(me.username || "");
+        }
+      }
+
+      async function refreshAuthState() {
+        __bitrotMe = await fetchMe();
+        renderAuthUI();
+      }
+
+      async function authPost(path, body) {
+        const res = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(body || {}),
+        });
+
+        let data = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
+        }
+
+        return { ok: res.ok, status: res.status, data };
+      }
+
+      if (authLoginBtn) {
+        authLoginBtn.addEventListener("click", async () => {
+          setAuthMsg("", false);
+          const username = String(authUsernameEl?.value || "").trim();
+          const password = String(authPasswordEl?.value || "");
+
+          if (!username || !password) {
+            setAuthMsg("Username + password required.", false);
+            return;
+          }
+
+          const { ok, data } = await authPost("/auth/login", { username, password });
+          if (!ok) {
+            setAuthMsg((data && data.error) || "Login failed.", false);
+            return;
+          }
+
+          setAuthMsg("Logged in.", false);
+          await refreshAuthState();
+        });
+      }
+
+      if (authSignupBtn) {
+        authSignupBtn.addEventListener("click", async () => {
+          setAuthMsg("", false);
+          const username = String(authUsernameEl?.value || "").trim();
+          const email = String(authEmailEl?.value || "").trim();
+          const password = String(authPasswordEl?.value || "");
+
+          if (!username || !email || !password) {
+            setAuthMsg("Username + email + password required for signup.", false);
+            return;
+          }
+
+          const { ok, data } = await authPost("/auth/signup", { username, email, password });
+          if (!ok) {
+            setAuthMsg((data && data.error) || "Signup failed.", false);
+            return;
+          }
+
+          setAuthMsg("Account created. Logged in.", false);
+          await refreshAuthState();
+        });
+      }
+
+      if (authLogoutBtn) {
+        authLogoutBtn.addEventListener("click", async () => {
+          setAuthMsg("", true);
+          await authPost("/auth/logout", {});
+          __bitrotMe = null;
+          renderAuthUI();
+          setAuthMsg("Logged out.", true);
+        });
+      }
+
       // Selected tags (multi, AND semantics enforced on backend)
       let selectedTags = [];
 
@@ -1508,16 +1834,81 @@
 			  `
 			  : `<div class="details-tracks-right"><div class="details-label">Tracks</div><div style="color:#6b7280; font-size:12px; margin-top:6px;">No tracks recorded</div></div>`;
 
-		  // Keep your existing tags grouping (already working in your file)
-		  // We reuse your already-built tag sections if present on the response:
-		  const safeBandcampTags = (r.tags || "").toString();
-		  const tagsBlockHtml = safeBandcampTags
-			? `<div style="margin-top:10px;">
-				 <div class="details-label">Tags</div>
-				 <div class="details-value">${safeBandcampTags}</div>
-			   </div>`
-			: "";
-	  
+		  // Tags + Stickers (votable attachments)
+		  const attachments = Array.isArray(r.tag_attachments) ? r.tag_attachments : [];
+
+		  function srcIconHtml(src) {
+			if (src === "bandcamp") {
+			  return `<img class="src-icon" src="/assets/bandcamp.png" alt="Bandcamp" />`;
+			}
+			if (src === "discogs_genre" || src === "discogs_style") {
+			  return `<img class="src-icon" src="/assets/discogs-white.png" alt="Discogs" />`;
+			}
+			// user stickers: no source icon (less busy)
+			return "";
+		  }
+
+		  const attachmentsHtml =
+			attachments.length > 0
+			  ? `<div class="attach-row">
+				   ${attachments
+					 .map((a) => {		 
+					   const name = String(a.tag_name || "").replace(/</g, "&lt;");
+					   const iconHtml = srcIconHtml(a.source);			   
+					   const up = Number(a.upvotes || 0);
+					   const down = Number(a.downvotes || 0);
+					   const canUp = a.can_upvote === true;
+					   const canDown = a.can_downvote === true;
+					   const canRemove = a.can_remove === true;
+					   const isMineSticker = a.source === "user" && __bitrotMe && a.created_by_account_id === __bitrotMe.id;
+					   const totalVotes = Number(a.upvotes || 0) + Number(a.downvotes || 0);  
+					   return `
+						<span class="attach-chip"
+						  data-release-id="${String(r.id || releaseId)}"
+						  data-release-tag-id="${String(a.release_tag_id)}"
+						  data-my-vote-value="${String(Number(a.my_vote_value || 0))}">
+						   ${iconHtml}<span>${name}</span>
+						   <button class="vote-btn vote-up" ${canUp ? "" : "disabled"} title="Upvote">▲</button>
+						   <span class="vote-count upcount">${up}</span>
+						   <button class="vote-btn vote-down" ${canDown ? "" : "disabled"} title="Downvote (stickers only)">▼</button>
+						   <span class="vote-count downcount">${down}</span>
+						  ${
+							isMineSticker
+							  ? `<button class="remove-btn sticker-remove" ${canRemove ? "" : "disabled"}
+								   title="${canRemove ? "Remove your sticker" : `Can't remove after votes (${totalVotes} total)`}">
+								   remove
+								 </button>`
+							  : ""
+						  }	
+						 </span>	 
+					   `;
+					 })
+					 .join("")}
+				 </div>`
+			  : `<div style="color:#6b7280; font-size:12px; margin-top:6px;">No tags attached yet</div>`;
+
+		  const stickerAddHtml =
+			__bitrotMe
+			  ? `
+				<div class="stickers-add-row">
+				  <div class="typeahead">
+					<input class="sticker-input" type="text" placeholder="Add sticker (choose existing tag)..." />
+					<div class="typeahead-list"></div>
+				  </div>
+				  <button class="btn btn-secondary sticker-add-btn" disabled>Add</button>
+				  <span style="color:#9ca3af; font-size:11px;" class="sticker-add-msg"></span>
+				</div>
+			  `
+			  : `<div style="color:#9ca3af; font-size:11px; margin-top:6px;">Log in to add stickers or vote.</div>`;
+
+		  const tagsBlockHtml = `
+			<div class="stickers-panel" data-release-id="${String(r.id || releaseId)}">
+			  <div class="details-label">Tags + Stickers</div>
+			  ${attachmentsHtml}
+			  ${stickerAddHtml}
+			</div>
+		  `;
+  
 		  // Render: media left, metadata middle, tracks right (all locked to player height)
 		  detailsTd.innerHTML = `
 			<div class="inline-details">
@@ -1590,6 +1981,300 @@
 		
 		  // Wire Copy ID + tag clicks inside the expanded content
 		  wireTagClickElements(detailsTd);
+
+          // ---------- Stickers/Votes wiring ----------
+          (function wireStickersAndVotes(container, releaseObj) {
+            const panel = container.querySelector(".stickers-panel");
+            if (!panel) return;
+
+            const releaseIdStr = panel.getAttribute("data-release-id") || "";
+
+            // Typeahead (only if logged in)
+            const input = panel.querySelector("input.sticker-input");
+            const list = panel.querySelector(".typeahead-list");
+            const addBtn = panel.querySelector("button.sticker-add-btn");
+            const msgEl = panel.querySelector(".sticker-add-msg");
+
+            let selectedTagId = null;
+
+            function setMsg(msg) {
+              if (!msgEl) return;
+              msgEl.textContent = msg || "";
+            }
+
+            async function refreshPanel() {
+              const res = await fetch("/release/" + encodeURIComponent(releaseIdStr), {
+                credentials: "same-origin",
+              });
+              if (!res.ok) return;
+              const fresh = await res.json();
+
+              const attachments = Array.isArray(fresh.tag_attachments)
+                ? fresh.tag_attachments
+                : [];
+
+			  function srcIconHtml(src) {
+			  if (src === "bandcamp") {
+			  return `<img class="src-icon" src="/assets/bandcamp.png" alt="Bandcamp" />`;
+			  }
+			  if (src === "discogs_genre" || src === "discogs_style") {
+			  return `<img class="src-icon" src="/assets/discogs-white.png" alt="Discogs" />`;
+			  }
+			  // user stickers: no source icon (less busy)
+			  return "";
+			  }
+
+              const attachmentsHtml =
+                attachments.length > 0
+                  ? `<div class="attach-row">
+                       ${attachments
+                         .map((a) => {
+                           const name = String(a.tag_name || "").replace(/</g, "&lt;");
+                           const iconHtml = srcIconHtml(a.source);
+                            const up = Number(a.upvotes || 0);
+                            const down = Number(a.downvotes || 0);
+                            const canUp = a.can_upvote === true;
+                            const canDown = a.can_downvote === true;
+                            const canRemove = a.can_remove === true;
+
+                            const myVote = Number(a.my_vote_value || 0);
+                            const upActive = myVote === 1 ? "active" : "";
+                            const downActive = myVote === -1 ? "active" : "";
+
+                            return `
+							<span class="attach-chip"
+							  data-release-id="${String(fresh.id || releaseIdStr)}"
+							  data-release-tag-id="${String(a.release_tag_id)}"
+							  data-my-vote-value="${String(myVote)}">
+                                ${iconHtml}<span>${name}</span>
+                                <button class="vote-btn vote-up ${upActive}" ${canUp ? "" : "disabled"} title="Upvote" aria-pressed="${myVote === 1 ? "true" : "false"}">▲</button>
+                                <span class="vote-count upcount">${up}</span>
+                                <button class="vote-btn vote-down ${downActive}" ${canDown ? "" : "disabled"} title="Downvote (stickers only)" aria-pressed="${myVote === -1 ? "true" : "false"}">▼</button>
+                                <span class="vote-count downcount">${down}</span>
+                                ${
+                                  canRemove
+                                    ? `<button class="remove-btn sticker-remove" title="Remove your sticker (only if no votes)">remove</button>`
+                                    : ""
+                                }
+                              </span>
+                            `;  
+                         })
+                         .join("")}
+                     </div>`
+                  : `<div style="color:#6b7280; font-size:12px; margin-top:6px;">No tags attached yet</div>`;
+
+              const stickerAddHtml =
+                __bitrotMe
+                  ? `
+                    <div class="stickers-add-row">
+                      <div class="typeahead">
+                        <input class="sticker-input" type="text" placeholder="Add sticker (choose existing tag)..." />
+                        <div class="typeahead-list"></div>
+                      </div>
+                      <button class="btn btn-secondary sticker-add-btn" disabled>Add</button>
+                      <span style="color:#9ca3af; font-size:11px;" class="sticker-add-msg"></span>
+                    </div>
+                  `
+                  : `<div style="color:#9ca3af; font-size:11px; margin-top:6px;">Log in to add stickers or vote.</div>`;
+
+              // Replace only the stickers panel content (no collapsing/reopening the expanded view)
+              panel.innerHTML = `
+                <div class="details-label">Tags + Stickers</div>
+                ${attachmentsHtml}
+                ${stickerAddHtml}
+              `;
+
+              // Re-wire events on the new panel DOM
+              wireStickersAndVotes(container, fresh);
+            }
+
+            async function vote(releaseTagId, value) {
+              const res = await fetch(
+                "/release/" + encodeURIComponent(releaseIdStr) + "/tags/" + encodeURIComponent(releaseTagId) + "/vote",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ value }),
+                }
+              );
+              if (!res.ok) {
+                let data = null;
+                try { data = await res.json(); } catch {}
+                alert((data && data.error) || "Vote failed.");
+                return;
+              }
+              await refreshPanel();
+            }
+
+            async function undoVote(releaseTagId) {
+              const res = await fetch(
+                "/release/" + encodeURIComponent(releaseIdStr) + "/tags/" + encodeURIComponent(releaseTagId) + "/vote",
+                { method: "DELETE", credentials: "same-origin" }
+              );
+              if (!res.ok) {
+                let data = null;
+                try { data = await res.json(); } catch {}
+                alert((data && data.error) || "Undo failed.");
+                return;
+              }
+              await refreshPanel();
+            }
+
+            async function removeSticker(releaseTagId) {
+              const res = await fetch(
+                "/release/" + encodeURIComponent(releaseIdStr) + "/stickers/" + encodeURIComponent(releaseTagId),
+                { method: "DELETE", credentials: "same-origin" }
+              );
+              if (!res.ok) {
+                let data = null;
+                try { data = await res.json(); } catch {}
+                alert((data && data.error) || "Remove failed.");
+                return;
+              }
+              await refreshPanel();
+            }
+
+			// Delegated click handler for vote/remove buttons
+			panel.addEventListener("click", async (ev) => {
+			  const chip = ev.target.closest(".attach-chip");
+			  if (!chip) return;
+			
+			  const rtId = chip.getAttribute("data-release-tag-id");
+			  if (!rtId) return;
+			
+			  // -1 = user downvoted, 0 = no vote, 1 = user upvoted
+			  const myVote = Number(chip.getAttribute("data-my-vote-value") || 0);
+			
+			  const upBtn = ev.target.closest("button.vote-up");
+			  const downBtn = ev.target.closest("button.vote-down");
+			  const rmBtn = ev.target.closest("button.sticker-remove");
+			
+			  if (upBtn) {
+				ev.stopPropagation();
+				if (upBtn.disabled) return;
+			
+				// Toggle off if already upvoted, otherwise set upvote (switches from downvote too)
+				if (myVote === 1) {
+				  await undoVote(rtId);
+				} else {
+				  await vote(rtId, 1);
+				}
+				return;
+			  }
+			
+			  if (downBtn) {
+				ev.stopPropagation();
+				if (downBtn.disabled) return;
+			
+				// Toggle off if already downvoted, otherwise set downvote (switches from upvote too)
+				if (myVote === -1) {
+				  await undoVote(rtId);
+				} else {
+				  await vote(rtId, -1);
+				}
+				return;
+			  }		
+			  		  
+			  if (rmBtn) {
+				ev.stopPropagation();
+				if (rmBtn.disabled) return;
+				await removeSticker(rtId);
+				return;
+			  }
+			  
+			});
+
+            if (!input || !list || !addBtn) return;
+
+            function showList(items) {
+              list.innerHTML = "";
+              if (!items || items.length === 0) {
+                list.style.display = "none";
+                return;
+              }
+
+              list.style.display = "block";
+              for (const it of items) {
+                const div = document.createElement("div");
+                div.className = "typeahead-item";
+                div.textContent = it.name;
+                div.setAttribute("data-tag-id", String(it.id));
+                div.setAttribute("data-tag-name", String(it.name));
+                list.appendChild(div);
+              }
+            }
+
+            input.addEventListener("input", async () => {
+              selectedTagId = null;
+              addBtn.disabled = true;
+              setMsg("");
+
+              const q = String(input.value || "").trim();
+              if (q.length < 2) {
+                showList([]);
+                return;
+              }
+
+              try {
+                const res = await fetch("/tag_pool?q=" + encodeURIComponent(q));
+                if (!res.ok) return showList([]);
+                const data = await res.json();
+                const items = Array.isArray(data.tags) ? data.tags : [];
+                showList(items.slice(0, 50));
+              } catch {
+                showList([]);
+              }
+            });
+
+            list.addEventListener("click", (ev) => {
+              const item = ev.target.closest(".typeahead-item");
+              if (!item) return;
+              const id = item.getAttribute("data-tag-id");
+              const name = item.getAttribute("data-tag-name");
+              if (!id || !name) return;
+
+              selectedTagId = Number(id);
+              input.value = name;
+              showList([]);
+              addBtn.disabled = false;
+            });
+
+            document.addEventListener("click", (ev) => {
+              if (!panel.contains(ev.target)) showList([]);
+            });
+
+            addBtn.addEventListener("click", async () => {
+              if (!selectedTagId) return;
+              addBtn.disabled = true;
+              setMsg("Adding…");
+
+              const res = await fetch(
+                "/release/" + encodeURIComponent(releaseIdStr) + "/stickers",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "same-origin",
+                  body: JSON.stringify({ tag_id: selectedTagId }),
+                }
+              );
+
+              let data = null;
+              try { data = await res.json(); } catch {}
+
+              if (!res.ok) {
+                setMsg((data && data.error) || "Failed.");
+                addBtn.disabled = false;
+                return;
+              }
+
+              // reset
+              input.value = "";
+              selectedTagId = null;
+              setMsg("Added.");
+              await refreshPanel();
+            });
+          })(detailsTd, r);
 	  
 		  const copyBtn = detailsTd.querySelector(".copy-id-btn");
 		  if (copyBtn) {
@@ -2149,7 +2834,8 @@
       refreshReleases();
       loadArtists();
       loadTags();
-      
+      refreshAuthState();
+    
 	// Global click handler for "Copy ID" buttons
 	document.addEventListener("click", async (event) => {
 	
