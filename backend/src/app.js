@@ -136,11 +136,90 @@ app.get("/release/:id", async (req, res) => {
       [id]
     );
 
+    const tagAttachmentsResult = await pool.query(
+      `
+      SELECT
+        rt.id AS release_tag_id,
+        rt.tag_id,
+        t.name AS tag_name,
+        rt.source,
+        rt.created_by_account_id,
+
+        -- totals
+        COUNT(*) FILTER (WHERE v.vote_value = 1)::int AS upvotes,
+        COUNT(*) FILTER (WHERE v.vote_value = -1)::int AS downvotes,
+
+        -- current user's vote on this attachment (1, -1, or null)
+        MAX(CASE WHEN v.account_id = $2 THEN v.vote_value ELSE NULL END)::int AS my_vote_value
+      FROM release_tags rt
+      JOIN tags t ON t.id = rt.tag_id
+      LEFT JOIN release_tag_votes v ON v.release_tag_id = rt.id
+      WHERE rt.release_id = $1
+      GROUP BY
+        rt.id,
+        rt.tag_id,
+        t.name,
+        rt.source,
+        rt.created_by_account_id
+      ORDER BY
+        (COUNT(*) FILTER (WHERE v.vote_value = 1) - COUNT(*) FILTER (WHERE v.vote_value = -1)) DESC,
+        t.name ASC
+      `,
+      [id, req.account?.id ?? null]
+    );
+
+    const tag_attachments = (tagAttachmentsResult.rows || []).map((row) => {
+      const upvotes = Number(row.upvotes || 0);
+      const downvotes = Number(row.downvotes || 0);
+      const myVote = row.my_vote_value == null ? 0 : Number(row.my_vote_value);
+
+      const isSticker = row.source === "user";
+      const isMine =
+        req.account?.id != null && row.created_by_account_id === req.account.id;
+
+      // removal policy:
+      // - only your own sticker
+      // - allowed if there are NO upvotes
+      // - and the creator has NOT voted on it (no self up/down vote)
+      //
+      // This allows removal even if there are only downvotes from other users.
+      const creatorVoted = myVote === 1 || myVote === -1;
+      const can_remove =
+        Boolean(req.account?.id) &&
+        isSticker &&
+        isMine &&
+        upvotes === 0 &&
+        !creatorVoted;
+
+      // voting policy:
+      // - anyone logged in can upvote any tag attachment
+      // - only stickers can be downvoted
+      const can_upvote = Boolean(req.account?.id);
+      const can_downvote = Boolean(req.account?.id) && isSticker;
+
+      return {
+        release_tag_id: row.release_tag_id,
+        tag_id: row.tag_id,
+        tag_name: row.tag_name,
+        source: row.source,
+        upvotes,
+        downvotes,
+        my_vote_value: myVote, // 1, -1, or 0
+        can_remove,
+        can_upvote,
+        can_downvote,
+      };
+    });
+
     const release = releaseResult.rows[0];
     release.tracks = tracksResult.rows;
     release.encounter_count = encountersResult.rows[0].count;
 
+    // New field for stickers/voting UI (existing fields remain unchanged)
+    release.tag_attachments = tag_attachments;
+
     res.json(release);
+    
   } catch (err) {
     console.error("Error in GET /release/:id", err);
     res.status(500).json({ error: "Internal server error" });
@@ -223,6 +302,48 @@ app.get("/artist", async (req, res) => {
   } catch (err) {
     console.error("Error in GET /artist:", err);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Tag pool endpoint (for sticker/typeahead UI)
+ * GET /tag_pool?q=house
+ *
+ * Returns:
+ *  { tags: [{id, name}] }
+ *
+ * Notes:
+ * - This is NOT the same as /tags (stats grouping).
+ * - This returns from the global tags table (complete pool).
+ * - Case-insensitive match.
+ */
+app.get("/tag_pool", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  const limit = 50;
+
+  try {
+    if (!q) {
+      // for safety/perf, require q (typeahead usage)
+      return res.json({ tags: [] });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT id, name
+      FROM tags
+      WHERE name ILIKE '%' || $1 || '%'
+      ORDER BY
+        CASE WHEN name ILIKE $1 || '%' THEN 0 ELSE 1 END,
+        name ASC
+      LIMIT $2
+      `,
+      [q, limit]
+    );
+
+    return res.json({ tags: result.rows || [] });
+  } catch (err) {
+    console.error("Error in GET /tag_pool:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

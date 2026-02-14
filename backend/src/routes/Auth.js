@@ -14,6 +14,55 @@ import {
 const router = express.Router();
 
 /**
+ * Lightweight in-memory rate limiter (MVP)
+ * - No external deps
+ * - Resets automatically via TTL
+ * - Keyed by (route + ip) to prevent brute force
+ */
+const __rateBuckets = new Map();
+
+function getClientIp(req) {
+  // If you later deploy behind a proxy, you may want app.set('trust proxy', 1)
+  // and prefer req.ip. For local MVP, this is fine.
+  const xf = req.headers["x-forwarded-for"];
+  if (typeof xf === "string" && xf.trim()) return xf.split(",")[0].trim();
+  return req.ip || req.connection?.remoteAddress || "unknown";
+}
+
+/**
+ * Creates an Express middleware that enforces maxAttempts within windowMs.
+ */
+function rateLimit({ keyPrefix, maxAttempts, windowMs }) {
+  return (req, res, next) => {
+    const ip = getClientIp(req);
+    const now = Date.now();
+    const key = `${keyPrefix}:${ip}`;
+
+    const entry = __rateBuckets.get(key);
+    if (!entry || entry.resetAt <= now) {
+      __rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    entry.count += 1;
+    __rateBuckets.set(key, entry);
+
+    if (entry.count > maxAttempts) {
+      const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      return res.status(429).json({ error: "Too many attempts, try again soon." });
+    }
+
+    return next();
+  };
+}
+
+// Policies (tweakable)
+const limitLogin = rateLimit({ keyPrefix: "auth:login", maxAttempts: 10, windowMs: 10 * 60 * 1000 });
+const limitSignup = rateLimit({ keyPrefix: "auth:signup", maxAttempts: 5, windowMs: 10 * 60 * 1000 });
+const limitAdminReset = rateLimit({ keyPrefix: "auth:admin_reset", maxAttempts: 10, windowMs: 10 * 60 * 1000 });
+
+/**
  * GET /auth/me
  * Returns logged-in account (or null)
  */
@@ -31,7 +80,7 @@ router.get("/me", async (req, res) => {
  * POST /auth/signup
  * body: { username, email, password }
  */
-router.post("/signup", async (req, res) => {
+router.post("/signup", limitSignup, async (req, res) => {
   try {
     const usernameDisplay = String(req.body?.username ?? "").trim();
     const email = String(req.body?.email ?? "").trim();
@@ -96,7 +145,7 @@ router.post("/signup", async (req, res) => {
  *
  * Note: username is case-insensitive for lookup (canonicalized).
  */
-router.post("/login", async (req, res) => {
+router.post("/login", limitLogin, async (req, res) => {
   try {
     const usernameInput = String(req.body?.username ?? "").trim();
     const password = String(req.body?.password ?? "");
@@ -165,7 +214,7 @@ router.post("/logout", async (req, res) => {
  * Admin-only MVP failsafe.
  * body: { username, new_password }
  */
-router.post("/admin/reset_password", requireAdmin, async (req, res) => {
+router.post("/admin/reset_password", limitAdminReset, requireAdmin, async (req, res) => {
   try {
     const usernameInput = String(req.body?.username ?? "").trim();
     const newPassword = String(req.body?.new_password ?? "");

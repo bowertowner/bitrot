@@ -161,7 +161,7 @@ async function persistReleaseEnrichment({
   const labels = extractLabels(releaseJson);
   const { coverUrl, thumbUrl } = pickImages(releaseJson);
   const rating = extractRating(releaseJson);
-
+  
   await pool.query(
     `
     UPDATE releases
@@ -199,6 +199,53 @@ async function persistReleaseEnrichment({
       rating.count,
     ]
   );
+
+  // Keep release_tags in sync with Discogs genres/styles (Option B: display both as votable tags)
+  await syncDiscogsTagsToReleaseTags({ releaseId, genres, styles });
+}
+
+async function syncDiscogsTagsToReleaseTags({ releaseId, genres, styles }) {
+  // We do NOT delete anything here (safe-by-default).
+  // We only ensure Discogs-derived tags exist in:
+  // - tags(name)
+  // - release_tags(release_id, tag_id, source='discogs_genre'|'discogs_style')
+
+  const genreList = Array.isArray(genres) ? genres : [];
+  const styleList = Array.isArray(styles) ? styles : [];
+
+  // Helper to upsert tags + attach
+  const attach = async (name, source) => {
+    const tagName = String(name || "").trim();
+    if (!tagName) return;
+
+    const tagRow = await pool.query(
+      `
+      INSERT INTO tags (name)
+      VALUES ($1)
+      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+      RETURNING id
+      `,
+      [tagName]
+    );
+
+    const tagId = tagRow.rows[0].id;
+
+    await pool.query(
+      `
+      INSERT INTO release_tags (release_id, tag_id, source)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (release_id, tag_id) DO NOTHING
+      `,
+      [releaseId, tagId, source]
+    );
+  };
+
+  for (const g of genreList) {
+    await attach(g, "discogs_genre");
+  }
+  for (const s of styleList) {
+    await attach(s, "discogs_style");
+  }
 }
 
 async function refreshExistingDiscogsMatch(releaseRow) {
